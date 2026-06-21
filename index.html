@@ -49,10 +49,12 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 16px;
+    gap: 12px;
     padding: 14px 22px 10px;
     border-bottom: 1px solid var(--line);
     flex-shrink: 0;
+    flex-wrap: wrap;
+    row-gap: 10px;
   }
   .brand {
     font-family: var(--mono);
@@ -108,6 +110,99 @@
     border-color: var(--cyan);
     color: var(--cyan);
     background: rgba(95,212,212,0.08);
+  }
+
+  /* ===== LOCATION PICKER ===== */
+  .loc-picker { position: relative; }
+  .loc-btn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--slate-bright);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    max-width: 220px;
+    overflow: hidden;
+  }
+  .loc-btn .pin { color: var(--amber); font-size: 11px; flex-shrink: 0; }
+  .loc-btn .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .loc-btn:active { transform: scale(0.97); }
+
+  .loc-panel {
+    display: none;
+    position: absolute;
+    top: calc(100% + 8px);
+    left: 0;
+    z-index: 50;
+    background: var(--bg-panel);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 10px;
+    width: 260px;
+    box-shadow: 0 12px 28px rgba(0,0,0,0.5);
+  }
+  .loc-panel.open { display: block; }
+  .loc-panel .preset {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    width: 100%;
+    background: transparent;
+    border: none;
+    border-bottom: 1px solid var(--line);
+    color: var(--slate-bright);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 9px 4px;
+    cursor: pointer;
+    text-align: left;
+  }
+  .loc-panel .preset:last-of-type { border-bottom: none; }
+  .loc-panel .preset:active { color: var(--cyan); }
+  .loc-panel .preset .code { color: var(--amber); font-weight: 600; margin-right: 8px; }
+  .loc-panel .preset.active { color: var(--cyan); }
+
+  .loc-custom {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid var(--line);
+  }
+  .loc-custom .lbl {
+    font-family: var(--mono);
+    font-size: 9px;
+    color: var(--slate);
+    letter-spacing: 0.1em;
+    margin-bottom: 6px;
+  }
+  .loc-custom .row2 { display: flex; gap: 6px; margin-bottom: 8px; }
+  .loc-custom input {
+    flex: 1;
+    background: var(--bg);
+    border: 1px solid var(--line);
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 7px 8px;
+    border-radius: 3px;
+    width: 0;
+  }
+  .loc-custom button {
+    width: 100%;
+    background: rgba(95,212,212,0.1);
+    border: 1px solid var(--cyan-dim);
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.06em;
+    padding: 8px;
+    border-radius: 3px;
+    cursor: pointer;
   }
 
   /* ===== MAIN SPLIT ===== */
@@ -230,6 +325,22 @@
 <div id="app">
   <header>
     <div class="brand">FLIGHT<span>WALL</span></div>
+    <div class="loc-picker">
+      <button class="loc-btn" id="locBtn">
+        <span class="pin">⊙</span><span class="name" id="locBtnLabel">Sydney Airport</span>
+      </button>
+      <div class="loc-panel" id="locPanel">
+        <!-- presets injected by JS -->
+        <div class="loc-custom">
+          <div class="lbl">CUSTOM COORDINATES</div>
+          <div class="row2">
+            <input type="text" id="customLat" placeholder="Lat e.g. -33.9399" inputmode="decimal">
+            <input type="text" id="customLon" placeholder="Lon e.g. 151.1753" inputmode="decimal">
+          </div>
+          <button id="customApply">USE THESE COORDINATES</button>
+        </div>
+      </div>
+    </div>
     <div class="radius-picker" id="radiusPicker">
       <span class="rlabel">RANGE</span>
       <!-- buttons injected by JS based on RADIUS_OPTIONS -->
@@ -276,8 +387,9 @@
    Edit these three values for your location.
    ============================================================ */
 const CONFIG = {
-  CENTER_LAT: 33.9416,      // <-- set your latitude
-  CENTER_LON: -118.4085,    // <-- set your longitude
+  CENTER_LAT: -33.9399,     // default: Sydney Airport (YSSY)
+  CENTER_LON: 151.1753,
+  LOCATION_NAME: "Sydney Airport",
   RADIUS_KM: 40,            // <-- default/starting radius in km
   RADIUS_OPTIONS: [20, 40, 80, 150], // <-- tappable radius choices shown in header
   REFRESH_MS: 15000,        // poll OpenSky every 15s (anonymous-safe)
@@ -287,6 +399,29 @@ const CONFIG = {
   OPENSKY_CLIENT_ID: "",
   OPENSKY_CLIENT_SECRET: ""
 };
+
+// Quick-pick presets shown in the location dropdown. Add/remove freely.
+const LOCATION_PRESETS = [
+  { code: "SYD", name: "Sydney Airport",     lat: -33.9399, lon: 151.1753 },
+  { code: "MEL", name: "Melbourne Airport",  lat: -37.6690, lon: 144.8410 },
+  { code: "BNE", name: "Brisbane Airport",   lat: -27.3942, lon: 153.1218 },
+  { code: "PER", name: "Perth Airport",      lat: -31.9385, lon: 115.9672 },
+  { code: "AKL", name: "Auckland Airport",   lat: -37.0082, lon: 174.7850 },
+  { code: "LAX", name: "Los Angeles (LAX)",  lat: 33.9416,  lon: -118.4085 },
+  { code: "LHR", name: "London Heathrow",    lat: 51.4700,  lon: -0.4543 }
+];
+
+// Restore a saved location from a previous session, if present
+(function restoreSavedLocation() {
+  try {
+    const saved = JSON.parse(localStorage.getItem("flightwall_location"));
+    if (saved && typeof saved.lat === "number" && typeof saved.lon === "number") {
+      CONFIG.CENTER_LAT = saved.lat;
+      CONFIG.CENTER_LON = saved.lon;
+      CONFIG.LOCATION_NAME = saved.name || "Custom location";
+    }
+  } catch (e) { /* no saved location yet, use default */ }
+})();
 
 /* ============================================================
    Geometry helpers
@@ -493,8 +628,71 @@ function renderRadar(flights) {
 }
 
 /* ============================================================
-   Radius picker — tap to switch range, re-fetches immediately
+   Location picker — presets + custom lat/lon, persisted locally
    ============================================================ */
+function saveLocation(lat, lon, name) {
+  try {
+    localStorage.setItem("flightwall_location", JSON.stringify({ lat, lon, name }));
+  } catch (e) { /* localStorage unavailable, location just won't persist */ }
+}
+
+function setLocation(lat, lon, name) {
+  CONFIG.CENTER_LAT = lat;
+  CONFIG.CENTER_LON = lon;
+  CONFIG.LOCATION_NAME = name;
+  saveLocation(lat, lon, name);
+  document.getElementById("locBtnLabel").textContent = name;
+  renderLocationPanel();
+  closeLocationPanel();
+  if (activeTimer) clearTimeout(activeTimer);
+  forceRefresh = true;
+  tick();
+}
+
+function renderLocationPanel() {
+  const panel = document.getElementById("locPanel");
+  panel.querySelectorAll(".preset").forEach(b => b.remove());
+  const customBlock = panel.querySelector(".loc-custom");
+  LOCATION_PRESETS.forEach(p => {
+    const btn = document.createElement("button");
+    const isActive = Math.abs(p.lat - CONFIG.CENTER_LAT) < 0.0005 && Math.abs(p.lon - CONFIG.CENTER_LON) < 0.0005;
+    btn.className = "preset" + (isActive ? " active" : "");
+    btn.innerHTML = `<span><span class="code">${p.code}</span>${p.name}</span>`;
+    btn.addEventListener("click", () => setLocation(p.lat, p.lon, p.name));
+    panel.insertBefore(btn, customBlock);
+  });
+}
+
+function openLocationPanel() { document.getElementById("locPanel").classList.add("open"); }
+function closeLocationPanel() { document.getElementById("locPanel").classList.remove("open"); }
+function toggleLocationPanel(e) {
+  e.stopPropagation();
+  document.getElementById("locPanel").classList.toggle("open");
+}
+
+function initLocationPicker() {
+  document.getElementById("locBtnLabel").textContent = CONFIG.LOCATION_NAME;
+  document.getElementById("locBtn").addEventListener("click", toggleLocationPanel);
+  document.getElementById("locPanel").addEventListener("click", e => e.stopPropagation());
+  document.addEventListener("click", closeLocationPanel);
+
+  document.getElementById("customApply").addEventListener("click", () => {
+    const latVal = parseFloat(document.getElementById("customLat").value);
+    const lonVal = parseFloat(document.getElementById("customLon").value);
+    if (isNaN(latVal) || isNaN(lonVal) || latVal < -90 || latVal > 90 || lonVal < -180 || lonVal > 180) {
+      document.getElementById("customLat").style.borderColor = "var(--warn)";
+      document.getElementById("customLon").style.borderColor = "var(--warn)";
+      return;
+    }
+    setLocation(latVal, lonVal, `${latVal.toFixed(3)}, ${lonVal.toFixed(3)}`);
+    document.getElementById("customLat").value = "";
+    document.getElementById("customLon").value = "";
+  });
+
+  renderLocationPanel();
+}
+
+
 let activeTimer = null;
 let forceRefresh = false;
 
@@ -568,6 +766,7 @@ async function tick() {
 }
 
 renderRadiusPicker();
+initLocationPicker();
 tick();
 
 // Prevent iOS Safari pull-to-refresh / bounce so it feels app-like
