@@ -393,7 +393,7 @@ const CONFIG = {
   LOCATION_NAME: "Sydney Airport",
   RADIUS_KM: 40,            // <-- default/starting radius in km
   RADIUS_OPTIONS: [20, 40, 80, 150], // <-- tappable radius choices shown in header
-  REFRESH_MS: 15000,        // poll OpenSky every 15s (anonymous-safe)
+  REFRESH_MS: 20000,        // poll every 20s (anonymous OpenSky + free proxies are rate-limit sensitive)
   MAX_ROWS: 14,             // max rows shown on the board
   // Optional: OpenSky free registered account gives a higher rate limit.
   // Leave blank to use anonymous access (still works, lower limit).
@@ -485,10 +485,12 @@ async function getOpenSkyToken() {
 // OpenSky blocks anonymous cross-origin browser requests (no CORS header
 // for any origin but their own site). Authenticated requests DO get CORS
 // headers, so if you've set OPENSKY_CLIENT_ID/SECRET above, we call it
-// directly. Otherwise we route through a free public CORS proxy.
+// directly. Otherwise we route through a free public CORS proxy — tried
+// in order, since any one of these free services can be flaky/overloaded.
 const CORS_PROXIES = [
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
   url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+  url => `https://thingproxy.freeboard.io/fetch/${url}`
 ];
 
 async function fetchFlights() {
@@ -499,26 +501,29 @@ async function fetchFlights() {
   const token = await getOpenSkyToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  // Build the list of URLs to try in order: direct call first (works when
-  // authenticated, or if OpenSky ever opens up CORS), then proxies.
+  // Build the list of URLs to try in order. If authenticated, call OpenSky
+  // directly first (gets proper CORS headers). Anonymous requests skip the
+  // direct call entirely — it will only ever fail with a CORS error and
+  // wastes a request against OpenSky's tight anonymous rate limit.
   const attempts = token
-    ? [targetUrl, ...CORS_PROXIES.map(p => p(targetUrl))]
-    : [...CORS_PROXIES.map(p => p(targetUrl)), targetUrl];
+    ? [{ url: targetUrl, label: "direct" }, ...CORS_PROXIES.map((p, i) => ({ url: p(targetUrl), label: `proxy ${i + 1}` }))]
+    : CORS_PROXIES.map((p, i) => ({ url: p(targetUrl), label: `proxy ${i + 1}` }));
 
   let lastError = null;
+  let lastStage = null;
 
-  for (const url of attempts) {
+  for (const attempt of attempts) {
+    lastStage = attempt.label;
     try {
-      const res = await fetch(url, { headers });
+      const res = await fetch(attempt.url, { headers });
 
       if (res.status === 429) {
-        consecutiveFailures++;
-        setStatus("warn", "RATE LIMITED");
-        return lastGoodData;
+        lastError = "rate limited";
+        continue; // this proxy/source is throttled — try the next one
       }
       if (!res.ok) {
         lastError = `HTTP ${res.status}`;
-        continue; // try next proxy
+        continue;
       }
 
       const data = await res.json();
@@ -533,13 +538,16 @@ async function fetchFlights() {
       return data;
     } catch (e) {
       lastError = e.message || "network error";
-      continue; // try next proxy
+      continue;
     }
   }
 
   // every attempt failed
+
   consecutiveFailures++;
-  setStatus("warn", lastGoodData ? "OFFLINE — RETRYING" : "OFFLINE");
+  const statusMsg = lastGoodData ? "RETRYING…" : `OFFLINE (${lastError || "unknown"})`;
+  setStatus("warn", statusMsg);
+  console.warn(`FlightWall: all data sources failed. Last stage: ${lastStage}, reason: ${lastError}`);
   return lastGoodData;
 }
 
