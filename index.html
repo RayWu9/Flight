@@ -302,12 +302,23 @@
     letter-spacing: 0.12em;
     margin-bottom: 5px;
   }
+  #nearest-blob .nb-header {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    margin-bottom: 4px;
+  }
+  #nearest-blob .nb-logo {
+    height: 18px;
+    max-width: 48px;
+    object-fit: contain;
+    flex-shrink: 0;
+  }
   #nearest-blob .nb-callsign {
     font-size: 17px;
     font-weight: 700;
     color: var(--amber);
     letter-spacing: 0.02em;
-    margin-bottom: 4px;
   }
   #nearest-blob .nb-sub { font-size: 10px; color: var(--slate-bright); margin-bottom: 2px; line-height: 1.5; }
   #nearest-blob .nb-row { display: flex; justify-content: space-between; font-size: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
@@ -366,14 +377,17 @@
   .row:active { background: var(--bg-raised); }
   .row.locked { background: rgba(95,212,212,0.06); border-left: 2px solid var(--cyan); }
   .row.nearest { background: rgba(242,200,121,0.05); }
+  .row.selected-row { box-shadow: inset 0 0 0 1px var(--cyan-dim); }
   @keyframes flapIn {
     from { opacity: 0; transform: translateY(-6px) scaleY(0.85); }
     to { opacity: 1; transform: translateY(0) scaleY(1); }
   }
-  .row .callsign-cell { display: flex; flex-direction: column; gap: 1px; }
+  .row .callsign-cell { display: flex; align-items: center; gap: 7px; }
+  .row .airline-logo { height: 16px; max-width: 34px; object-fit: contain; flex-shrink: 0; }
+  .row .callsign-text { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
   .row .callsign { font-size: 16px; font-weight: 600; color: var(--amber); letter-spacing: 0.04em; }
   .row.locked .callsign { color: var(--cyan); }
-  .row .operator { font-size: 9px; color: var(--slate); letter-spacing: 0.02em; }
+  .row .operator { font-size: 9px; color: var(--slate); letter-spacing: 0.02em; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
   .row .reg { font-size: 10.5px; color: var(--slate); }
   .row .actype { font-size: 11.5px; color: var(--slate-bright); }
   .row .actype .typecode { color: var(--slate); font-size: 9px; display: block; }
@@ -381,10 +395,10 @@
   .row .spd { font-size: 12px; color: var(--cyan); }
   .row .hdg { font-size: 12px; color: var(--slate-bright); display: flex; align-items: center; gap: 5px; }
   .hdg-arrow { display: inline-block; font-size: 11px; }
-  .vrate-icon { font-size: 11px; display: inline-block; width: 14px; text-align: center; }
-  .vrate-icon.climb { color: var(--climb); }
-  .vrate-icon.descend { color: var(--descend); }
-  .vrate-icon.level { color: var(--slate); }
+  .vrate-cell { font-size: 10.5px; font-family: var(--mono); white-space: nowrap; }
+  .vrate-cell.climb { color: var(--climb); }
+  .vrate-cell.descend { color: var(--descend); }
+  .vrate-cell.level { color: var(--slate); }
 
   .empty-state {
     display: flex;
@@ -484,8 +498,11 @@
         <svg id="radar-svg" viewBox="0 0 400 400"></svg>
         <div class="radius-label" id="radiusLabel">RADIUS — KM</div>
         <div id="nearest-blob">
-          <div class="nb-label">NEAREST AIRCRAFT</div>
-          <div class="nb-callsign" id="nbCallsign">—</div>
+          <div class="nb-label" id="nbLabel">NEAREST AIRCRAFT</div>
+          <div class="nb-header">
+            <img class="nb-logo" id="nbLogo" alt="" style="display:none;">
+            <div class="nb-callsign" id="nbCallsign">—</div>
+          </div>
           <div class="nb-sub" id="nbOperator">—</div>
           <div class="nb-sub" id="nbType">—</div>
           <div class="nb-row"><span>DIST</span><span class="v" id="nbDist">—</span></div>
@@ -538,15 +555,10 @@ const CONFIG = {
   UNITS: "metric"           // "metric" (km, m) or "imperial" (mi, ft) — speed/distance toggle
 };
 
-// Quick-pick presets shown in the location dropdown.
+// Quick-pick presets shown in the location dropdown — just the two requested.
 const LOCATION_PRESETS = [
-  { code: "SYD", name: "Sydney Airport",     lat: -33.9399, lon: 151.1753 },
-  { code: "MEL", name: "Melbourne Airport",  lat: -37.6690, lon: 144.8410 },
-  { code: "BNE", name: "Brisbane Airport",   lat: -27.3942, lon: 153.1218 },
-  { code: "PER", name: "Perth Airport",      lat: -31.9385, lon: 115.9672 },
-  { code: "AKL", name: "Auckland Airport",   lat: -37.0082, lon: 174.7850 },
-  { code: "LAX", name: "Los Angeles (LAX)",  lat: 33.9416,  lon: -118.4085 },
-  { code: "LHR", name: "London Heathrow",    lat: 51.4700,  lon: -0.4543 }
+  { code: "A", name: "Newington",       lat: -33.8365730, lon: 151.0555295 },
+  { code: "B", name: "Sydney Airport",  lat: -33.9399,    lon: 151.1753 }
 ];
 
 // Restore saved preferences from a previous session
@@ -658,9 +670,16 @@ function parseStates(raw) {
       const brg = bearingFromCenter(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, lat, lon);
       const onGround = a.alt_baro === "ground";
       const altFt = (typeof a.alt_baro === "number") ? Math.round(a.alt_baro) : (onGround ? 0 : null);
+      const callsign = (a.flight || "").trim() || "—";
+      // airline ICAO code is conventionally the first 3 letters of the
+      // callsign when it's a flight-number callsign (e.g. QFA12 -> QFA).
+      // Private/GA registrations (e.g. VH-ABC) won't match this pattern,
+      // which is fine — they simply won't have a logo to look up.
+      const airlineIcaoMatch = callsign.match(/^([A-Z]{3})\d/);
       return {
         icao24: (a.hex || "—").toUpperCase(),
-        callsign: (a.flight || "").trim() || "—",
+        callsign,
+        airlineIcao: airlineIcaoMatch ? airlineIcaoMatch[1] : null,
         reg: a.r || null,
         typeCode: a.t || null,
         typeDesc: a.desc || null,
@@ -686,12 +705,38 @@ function headingArrow(track) {
   return arrows[Math.round(track / 45) % 8];
 }
 
+// Returns rich climb/descend info: icon, css class, short label (for
+// tight spaces like board rows) and a full label with explicit rate.
 function vrateInfo(vrate) {
-  if (vrate == null) return { icon: "•", cls: "level", label: "—" };
-  if (vrate > 150) return { icon: "▲", cls: "climb", label: `+${vrate} ft/min` };
-  if (vrate < -150) return { icon: "▼", cls: "descend", label: `${vrate} ft/min` };
-  return { icon: "•", cls: "level", label: "level" };
+  if (vrate == null) return { icon: "•", cls: "level", label: "—", full: "Level — no data" };
+  if (vrate > 150) {
+    return { icon: "▲", cls: "climb", label: `▲ ${Math.abs(vrate).toLocaleString()}`, full: `Climbing at ${Math.abs(vrate).toLocaleString()} ft/min` };
+  }
+  if (vrate < -150) {
+    return { icon: "▼", cls: "descend", label: `▼ ${Math.abs(vrate).toLocaleString()}`, full: `Descending at ${Math.abs(vrate).toLocaleString()} ft/min` };
+  }
+  return { icon: "•", cls: "level", label: "Level", full: "Level flight" };
 }
+
+/* ============================================================
+   Airline logo lookup — open, no-auth logo set maintained by the
+   Airframes.io project (community ADS-B ecosystem), keyed by the
+   airline's 3-letter ICAO code. Free, no API key, but unofficial —
+   not every airline is guaranteed to have a logo, so every <img>
+   using this MUST have an onerror fallback to hide gracefully and
+   fall back to text (operator name), never a broken-image icon.
+   ============================================================ */
+const AIRLINE_LOGO_BASE = "https://raw.githubusercontent.com/airframesio/airline-images/main/fr24_logos";
+
+function airlineLogoUrl(airlineIcao) {
+  if (!airlineIcao) return null;
+  return `${AIRLINE_LOGO_BASE}/${airlineIcao}.png`;
+}
+
+// Shared onerror handler string for logo <img> tags: hides the image
+// element if it fails to load, so layout collapses gracefully instead
+// of showing a broken-image icon.
+const LOGO_ONERROR = `this.style.display='none'; this.dataset.failed='true';`;
 
 /* ============================================================
    Unit conversion helpers
@@ -738,7 +783,7 @@ function altitudeColor(altFt) {
 /* ============================================================
    Position history — short rolling trail per aircraft (by icao24)
    ============================================================ */
-const TRAIL_LENGTH = 5;
+const TRAIL_LENGTH = 20; // ~2.5 min of history at the default 8s sweep interval — enough to trace a turn or approach
 const STALE_MS = 5 * 60 * 1000;
 const trailHistory = new Map();
 
@@ -773,41 +818,85 @@ function renderBoard(flights) {
   const nearestId = flights[0] ? flights[0].icao24 : null;
   const rows = flights.slice(0, CONFIG.MAX_ROWS).map(f => {
     const isLocked = trackedId && (f.callsign.toUpperCase() === trackedId || f.icao24 === trackedId);
+    const isSelected = selectedId === f.icao24;
     const isNearest = f.icao24 === nearestId;
     const vr = vrateInfo(f.vrate);
+    const logoUrl = airlineLogoUrl(f.airlineIcao);
+    const logoHtml = logoUrl
+      ? `<img class="airline-logo" src="${logoUrl}" alt="" onerror="${LOGO_ONERROR}">`
+      : "";
     return `
-    <div class="row ${isLocked ? "locked" : ""} ${isNearest ? "nearest" : ""}" data-id="${f.icao24}" data-callsign="${f.callsign}">
+    <div class="row ${isLocked ? "locked" : ""} ${isNearest ? "nearest" : ""} ${isSelected ? "selected-row" : ""}" data-id="${f.icao24}" data-callsign="${f.callsign}">
       <div class="callsign-cell">
-        <div class="callsign">${f.callsign}</div>
-        <div class="operator">${f.operator || "&mdash;"}</div>
+        ${logoHtml}
+        <div class="callsign-text">
+          <div class="callsign">${f.callsign}</div>
+          <div class="operator">${f.operator || "&mdash;"}</div>
+        </div>
       </div>
       <div class="reg">${f.reg || f.icao24}</div>
       <div class="actype">${f.typeDesc || f.typeCode || "Unknown type"}${f.typeCode ? `<span class="typecode">${f.typeCode}</span>` : ""}</div>
       <div class="alt">${fmtAlt(f.altFt)}</div>
       <div class="spd">${fmtSpd(f.spdKt)}</div>
       <div class="hdg"><span class="hdg-arrow">${headingArrow(f.track)}</span>${f.track != null ? f.track + "°" : "—"}</div>
-      <div class="vrate-icon ${vr.cls}" title="${vr.label}">${vr.icon}</div>
+      <div class="vrate-cell ${vr.cls}" title="${vr.full}">${vr.label}</div>
     </div>`;
   }).join("");
   board.innerHTML = rows;
 
   board.querySelectorAll(".row").forEach(row => {
     row.addEventListener("click", () => {
-      const cs = row.getAttribute("data-callsign");
       const id = row.getAttribute("data-id");
-      setTrackedId(cs && cs !== "—" ? cs : id);
+      selectAircraft(id);
     });
   });
 }
 
 /* ============================================================
-   Render: nearest-flight detail blob
+   Aircraft selection — clicking a row or a radar icon opens the
+   detail panel for that specific aircraft (separate from track-lock,
+   which persistently follows an aircraft across refreshes). If
+   nothing is selected, the panel defaults to showing the nearest
+   aircraft, same as before.
    ============================================================ */
-function renderNearestBlob(flights) {
+let selectedId = null; // icao24 of the aircraft whose details are shown
+
+function selectAircraft(icao24) {
+  selectedId = icao24;
+  if (lastGoodData) {
+    const flights = parseStates(lastGoodData);
+    renderDetailPanel(flights);
+    renderBoard(flights);
+    renderRadar(flights);
+  }
+}
+
+/* ============================================================
+   Render: detail panel — shows the selected aircraft if one is
+   chosen (via tap on radar or board row), otherwise defaults to
+   the nearest aircraft. This replaces the old "nearest-only" blob.
+   ============================================================ */
+function renderDetailPanel(flights) {
   const blob = document.getElementById("nearest-blob");
   if (!flights.length) { blob.classList.remove("show"); return; }
-  const f = flights[0];
+
+  let f = selectedId ? flights.find(fl => fl.icao24 === selectedId) : null;
+  const showingSelected = !!f;
+  if (!f) f = flights[0]; // fall back to nearest if selection has left range
+
   blob.classList.add("show");
+  document.getElementById("nbLabel").textContent = showingSelected ? "SELECTED AIRCRAFT" : "NEAREST AIRCRAFT";
+
+  const logoUrl = airlineLogoUrl(f.airlineIcao);
+  const logoEl = document.getElementById("nbLogo");
+  if (logoUrl) {
+    logoEl.src = logoUrl;
+    logoEl.style.display = "";
+    logoEl.onerror = function() { this.style.display = "none"; };
+  } else {
+    logoEl.style.display = "none";
+  }
+
   document.getElementById("nbCallsign").textContent = f.callsign;
   document.getElementById("nbOperator").textContent = f.operator || "Operator unknown";
   document.getElementById("nbType").textContent = f.typeDesc || f.typeCode || "Aircraft type unknown";
@@ -818,10 +907,15 @@ function renderNearestBlob(flights) {
   const vr = vrateInfo(f.vrate);
   const vrateEl = document.getElementById("nbVrate");
   vrateEl.className = "nb-vrate " + vr.cls;
-  vrateEl.textContent = `${vr.icon} ${vr.label}`;
+  vrateEl.textContent = vr.full;
 
   const trackBtn = document.getElementById("nbTrackBtn");
-  trackBtn.onclick = () => setTrackedId(f.callsign !== "—" ? f.callsign : f.icao24);
+  trackBtn.textContent = (trackedId && (f.callsign.toUpperCase() === trackedId || f.icao24 === trackedId)) ? "STOP TRACKING" : "TRACK THIS FLIGHT";
+  trackBtn.onclick = () => {
+    const isCurrentlyLocked = trackedId && (f.callsign.toUpperCase() === trackedId || f.icao24 === trackedId);
+    setTrackedId(isCurrentlyLocked ? null : (f.callsign !== "—" ? f.callsign : f.icao24));
+    renderDetailPanel(flights);
+  };
 }
 
 /* ============================================================
@@ -973,20 +1067,31 @@ function renderRadar(flights) {
     const rot = f.track != null ? f.track : 0;
     const color = altitudeColor(f.altFt);
     const isLocked = trackedId && (f.callsign.toUpperCase() === trackedId || f.icao24 === trackedId);
+    const isSelected = selectedId === f.icao24;
     const strokeColor = isLocked ? "#5FD4D4" : "#0B0F14";
     const strokeWidth = isLocked ? 1.4 : 0.6;
 
     if (isLocked) {
       html += `<circle cx="${x}" cy="${y}" r="11" fill="none" stroke="#5FD4D4" stroke-width="1" opacity="0.6"><animate attributeName="r" values="9;14;9" dur="1.8s" repeatCount="indefinite" /><animate attributeName="opacity" values="0.7;0.1;0.7" dur="1.8s" repeatCount="indefinite" /></circle>`;
     }
+    if (isSelected && !isLocked) {
+      html += `<circle cx="${x}" cy="${y}" r="9" fill="none" stroke="#F2C879" stroke-width="1" opacity="0.7" />`;
+    }
 
+    // invisible larger hit-target so tapping is easy on iPad, even though the icon itself is small
+    html += `<circle class="plane-hit" cx="${x}" cy="${y}" r="14" fill="transparent" data-id="${f.icao24}" style="cursor:pointer;" />`;
     html += `<use href="#planeShape" x="${x}" y="${y}" fill="${color}"
-      transform="rotate(${rot} ${x} ${y})" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
-    html += `<text class="plane-label ${isLocked ? "locked" : ""}" x="${x + 8}" y="${y + 3}">${f.callsign}</text>`;
+      transform="rotate(${rot} ${x} ${y})" stroke="${strokeColor}" stroke-width="${strokeWidth}" style="pointer-events:none;" />`;
+    html += `<text class="plane-label ${isLocked ? "locked" : ""}" x="${x + 8}" y="${y + 3}" style="pointer-events:none;">${f.callsign}</text>`;
   });
 
   svg.innerHTML = html;
   document.getElementById("radiusLabel").textContent = `RADIUS — ${fmtDist(CONFIG.RADIUS_KM)}`;
+
+  // wire up click-to-select on every plane hit-target now that the SVG is in the DOM
+  svg.querySelectorAll(".plane-hit").forEach(el => {
+    el.addEventListener("click", () => selectAircraft(el.getAttribute("data-id")));
+  });
 
   const sweepEl = document.getElementById("sweepGroup");
   sweepEl.style.animation = "none";
@@ -1103,7 +1208,7 @@ function renderUnitPicker() {
         const flights = parseStates(lastGoodData);
         renderBoard(flights);
         renderRadar(flights);
-        renderNearestBlob(flights);
+        renderDetailPanel(flights);
       }
     });
     wrap.appendChild(btn);
@@ -1124,7 +1229,7 @@ function initAltFilter() {
       const flights = parseStates(lastGoodData);
       renderBoard(flights);
       renderRadar(flights);
-      renderNearestBlob(flights);
+      renderDetailPanel(flights);
     }
   });
 }
@@ -1197,7 +1302,7 @@ async function tick() {
 
   renderBoard(flights);
   renderRadar(flights);
-  renderNearestBlob(flights);
+  renderDetailPanel(flights);
 
   document.getElementById("lastUpdate").textContent = `LAST UPDATE — ${fmtTime(new Date())}`;
   document.getElementById("countCount").textContent = `${flights.length} AIRCRAFT TRACKED`;
