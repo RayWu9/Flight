@@ -1,0 +1,577 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="FlightWall">
+<title>FlightWall</title>
+<style>
+  :root{
+    --bg: #0B0F14;
+    --bg-panel: #11161D;
+    --amber: #F2C879;
+    --amber-dim: #8A6F3F;
+    --cyan: #5FD4D4;
+    --cyan-dim: #1E4A4A;
+    --slate: #5A6472;
+    --slate-bright: #8C97A6;
+    --warn: #E0584A;
+    --line: #1C232C;
+    --mono: 'SF Mono', 'Courier New', monospace;
+    --grot: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
+  }
+
+  * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+
+  html, body {
+    margin: 0; padding: 0;
+    width: 100%; height: 100%;
+    background: var(--bg);
+    color: var(--amber);
+    font-family: var(--grot);
+    overflow: hidden;
+    -webkit-user-select: none;
+    user-select: none;
+  }
+
+  #app {
+    display: flex;
+    flex-direction: column;
+    height: 100vh;
+    height: 100dvh;
+    padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+  }
+
+  /* ===== HEADER ===== */
+  header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding: 14px 22px 10px;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .brand {
+    font-family: var(--mono);
+    font-size: 15px;
+    letter-spacing: 0.18em;
+    color: var(--amber);
+    text-transform: uppercase;
+  }
+  .brand span { color: var(--cyan); }
+  .status-line {
+    font-family: var(--mono);
+    font-size: 11px;
+    color: var(--slate);
+    letter-spacing: 0.08em;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .dot {
+    width: 7px; height: 7px; border-radius: 50%;
+    background: var(--cyan);
+    box-shadow: 0 0 6px var(--cyan);
+    animation: pulse 2.2s ease-in-out infinite;
+  }
+  .dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); animation: none; }
+  @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
+
+  .radius-picker {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-family: var(--mono);
+  }
+  .radius-picker .rlabel {
+    font-size: 10px;
+    color: var(--slate);
+    letter-spacing: 0.1em;
+    margin-right: 4px;
+  }
+  .rbtn {
+    background: transparent;
+    border: 1px solid var(--line);
+    color: var(--slate-bright);
+    font-family: var(--mono);
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    padding: 5px 10px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+  .rbtn:active { transform: scale(0.96); }
+  .rbtn.active {
+    border-color: var(--cyan);
+    color: var(--cyan);
+    background: rgba(95,212,212,0.08);
+  }
+
+  /* ===== MAIN SPLIT ===== */
+  main {
+    flex: 1;
+    display: flex;
+    min-height: 0;
+  }
+
+  /* ===== RADAR / MAP ===== */
+  #radar-wrap {
+    flex: 0 0 42%;
+    position: relative;
+    border-right: 1px solid var(--line);
+    background:
+      radial-gradient(circle at center, rgba(95,212,212,0.05) 0%, rgba(95,212,212,0) 70%),
+      var(--bg-panel);
+    overflow: hidden;
+  }
+  #radar-svg { width: 100%; height: 100%; display: block; }
+  .ring { fill: none; stroke: var(--cyan-dim); stroke-width: 1; }
+  .crosshair { stroke: var(--cyan-dim); stroke-width: 1; }
+  .sweep-group { transform-origin: center; animation: sweep 6s linear infinite; }
+  @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+  .plane-dot { fill: var(--amber); }
+  .plane-dot.selected { fill: var(--cyan); }
+  .plane-trail { stroke: var(--amber-dim); stroke-width: 1; opacity: 0.6; }
+  .plane-label {
+    font-family: var(--mono);
+    font-size: 9px;
+    fill: var(--slate-bright);
+    letter-spacing: 0.03em;
+  }
+  .radius-label {
+    position: absolute;
+    bottom: 10px; left: 14px;
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--slate);
+    letter-spacing: 0.1em;
+  }
+  .center-mark { fill: var(--amber); }
+
+  /* ===== BOARD (split-flap list) ===== */
+  #board-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+  }
+  .board-head {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr 1.3fr 0.8fr 0.8fr 0.9fr;
+    padding: 10px 22px;
+    font-family: var(--mono);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    color: var(--slate);
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  #board {
+    flex: 1;
+    overflow-y: auto;
+    overflow-x: hidden;
+  }
+  .row {
+    display: grid;
+    grid-template-columns: 1.1fr 0.9fr 1.3fr 0.8fr 0.8fr 0.9fr;
+    align-items: center;
+    padding: 13px 22px;
+    border-bottom: 1px solid var(--line);
+    font-family: var(--mono);
+    animation: flapIn 0.4s ease-out;
+  }
+  @keyframes flapIn {
+    from { opacity: 0; transform: translateY(-6px) scaleY(0.8); }
+    to { opacity: 1; transform: translateY(0) scaleY(1); }
+  }
+  .row .callsign { font-size: 18px; font-weight: 600; color: var(--amber); letter-spacing: 0.05em; }
+  .row .reg { font-size: 11px; color: var(--slate); }
+  .row .route { font-size: 13px; color: var(--slate-bright); }
+  .row .alt, .row .spd { font-size: 13px; color: var(--cyan); }
+  .row .hdg { font-size: 13px; color: var(--slate-bright); display: flex; align-items: center; gap: 6px; }
+  .hdg-arrow { display: inline-block; font-size: 12px; }
+
+  .empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    color: var(--slate);
+    font-family: var(--mono);
+    font-size: 13px;
+    gap: 10px;
+    text-align: center;
+    padding: 0 30px;
+  }
+  .empty-state .big { font-size: 15px; color: var(--slate-bright); }
+
+  /* scrollbar minimal */
+  #board::-webkit-scrollbar { width: 4px; }
+  #board::-webkit-scrollbar-thumb { background: var(--line); }
+
+  footer {
+    padding: 8px 22px;
+    border-top: 1px solid var(--line);
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--slate);
+    letter-spacing: 0.08em;
+    display: flex;
+    justify-content: space-between;
+    flex-shrink: 0;
+  }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">FLIGHT<span>WALL</span></div>
+    <div class="radius-picker" id="radiusPicker">
+      <span class="rlabel">RANGE</span>
+      <!-- buttons injected by JS based on RADIUS_OPTIONS -->
+    </div>
+    <div class="status-line">
+      <span class="dot" id="statusDot"></span>
+      <span id="statusText">CONNECTING</span>
+    </div>
+  </header>
+
+  <main>
+    <div id="radar-wrap">
+      <svg id="radar-svg" viewBox="0 0 400 400"></svg>
+      <div class="radius-label" id="radiusLabel">RADIUS — KM</div>
+    </div>
+
+    <div id="board-wrap">
+      <div class="board-head">
+        <div>CALLSIGN</div>
+        <div>REG</div>
+        <div>AIRCRAFT</div>
+        <div>ALT FT</div>
+        <div>SPD KT</div>
+        <div>HDG</div>
+      </div>
+      <div id="board">
+        <div class="empty-state">
+          <div class="big">SCANNING AIRSPACE</div>
+          <div>Waiting for first response from OpenSky&hellip;</div>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer>
+    <span id="lastUpdate">LAST UPDATE — —:—:—</span>
+    <span id="countCount">0 AIRCRAFT TRACKED</span>
+  </footer>
+</div>
+
+<script>
+/* ============================================================
+   FlightWall — config
+   Edit these three values for your location.
+   ============================================================ */
+const CONFIG = {
+  CENTER_LAT: 33.9416,      // <-- set your latitude
+  CENTER_LON: -118.4085,    // <-- set your longitude
+  RADIUS_KM: 40,            // <-- default/starting radius in km
+  RADIUS_OPTIONS: [20, 40, 80, 150], // <-- tappable radius choices shown in header
+  REFRESH_MS: 15000,        // poll OpenSky every 15s (anonymous-safe)
+  MAX_ROWS: 14,             // max rows shown on the board
+  // Optional: OpenSky free registered account gives a higher rate limit.
+  // Leave blank to use anonymous access (still works, lower limit).
+  OPENSKY_CLIENT_ID: "",
+  OPENSKY_CLIENT_SECRET: ""
+};
+
+/* ============================================================
+   Geometry helpers
+   ============================================================ */
+function kmToDegLat(km) { return km / 110.574; }
+function kmToDegLon(km, atLat) {
+  return km / (111.320 * Math.cos(atLat * Math.PI / 180));
+}
+function bbox(lat, lon, radiusKm) {
+  const dLat = kmToDegLat(radiusKm);
+  const dLon = kmToDegLon(radiusKm, lat);
+  return {
+    lamin: lat - dLat, lamax: lat + dLat,
+    lomin: lon - dLon, lomax: lon + dLon
+  };
+}
+function haversineKm(lat1, lon1, lat2, lon2) {
+  const R = 6371;
+  const dLat = (lat2 - lat1) * Math.PI / 180;
+  const dLon = (lon2 - lon1) * Math.PI / 180;
+  const a = Math.sin(dLat/2)**2 + Math.cos(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.sin(dLon/2)**2;
+  return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+}
+function bearingFromCenter(lat1, lon1, lat2, lon2) {
+  const y = Math.sin((lon2-lon1)*Math.PI/180) * Math.cos(lat2*Math.PI/180);
+  const x = Math.cos(lat1*Math.PI/180)*Math.sin(lat2*Math.PI/180) -
+            Math.sin(lat1*Math.PI/180)*Math.cos(lat2*Math.PI/180)*Math.cos((lon2-lon1)*Math.PI/180);
+  return (Math.atan2(y, x) * 180 / Math.PI + 360) % 360;
+}
+
+/* ============================================================
+   OpenSky fetch with auth fallback, retry/backoff, caching
+   ============================================================ */
+let tokenCache = { token: null, expires: 0 };
+let consecutiveFailures = 0;
+let lastGoodData = null;
+
+async function getOpenSkyToken() {
+  if (!CONFIG.OPENSKY_CLIENT_ID || !CONFIG.OPENSKY_CLIENT_SECRET) return null;
+  if (tokenCache.token && Date.now() < tokenCache.expires) return tokenCache.token;
+  try {
+    const res = await fetch("https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token", {
+      method: "POST",
+      headers: { "Content-Type": "application/x-www-form-urlencoded" },
+      body: new URLSearchParams({
+        grant_type: "client_credentials",
+        client_id: CONFIG.OPENSKY_CLIENT_ID,
+        client_secret: CONFIG.OPENSKY_CLIENT_SECRET
+      })
+    });
+    if (!res.ok) return null;
+    const data = await res.json();
+    tokenCache = { token: data.access_token, expires: Date.now() + (data.expires_in - 30) * 1000 };
+    return tokenCache.token;
+  } catch (e) {
+    return null;
+  }
+}
+
+async function fetchFlights() {
+  const box = bbox(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, CONFIG.RADIUS_KM);
+  const url = `https://opensky-network.org/api/states/all?lamin=${box.lamin}&lomin=${box.lomin}&lamax=${box.lamax}&lomax=${box.lomax}`;
+
+  const headers = {};
+  const token = await getOpenSkyToken();
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
+  try {
+    const res = await fetch(url, { headers });
+
+    if (res.status === 429) {
+      // Rate limited — back off, reuse last known-good data, don't hammer it
+      consecutiveFailures++;
+      setStatus("warn", "RATE LIMITED");
+      return lastGoodData;
+    }
+    if (!res.ok) {
+      consecutiveFailures++;
+      setStatus("warn", `HTTP ${res.status}`);
+      return lastGoodData;
+    }
+
+    const data = await res.json();
+    consecutiveFailures = 0;
+    lastGoodData = data;
+    setStatus("ok", "LIVE");
+    return data;
+  } catch (e) {
+    consecutiveFailures++;
+    setStatus("warn", "OFFLINE");
+    return lastGoodData;
+  }
+}
+
+function setStatus(kind, text) {
+  const dot = document.getElementById("statusDot");
+  const label = document.getElementById("statusText");
+  label.textContent = text;
+  dot.classList.toggle("warn", kind === "warn");
+}
+
+/* ============================================================
+   Parse OpenSky state vectors into flight objects
+   index ref: 0 icao24, 1 callsign, 5 lon, 6 lat, 7 baro_alt,
+              9 velocity(m/s), 10 true_track, 13 geo_alt
+   ============================================================ */
+function parseStates(raw) {
+  if (!raw || !raw.states) return [];
+  return raw.states
+    .filter(s => s[5] != null && s[6] != null)
+    .map(s => {
+      const lon = s[5], lat = s[6];
+      const distKm = haversineKm(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, lat, lon);
+      const brg = bearingFromCenter(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, lat, lon);
+      return {
+        icao24: s[0],
+        callsign: (s[1] || "").trim() || "—",
+        lon, lat,
+        altFt: s[7] != null ? Math.round(s[7] * 3.28084) : null,
+        spdKt: s[9] != null ? Math.round(s[9] * 1.94384) : null,
+        track: s[10] != null ? Math.round(s[10]) : null,
+        distKm,
+        brg
+      };
+    })
+    .filter(f => f.distKm <= CONFIG.RADIUS_KM)
+    .sort((a, b) => a.distKm - b.distKm);
+}
+
+function headingArrow(track) {
+  if (track == null) return "—";
+  const arrows = ["↑","↗","→","↘","↓","↙","←","↖"];
+  return arrows[Math.round(track / 45) % 8];
+}
+
+/* ============================================================
+   Render: board
+   ============================================================ */
+function renderBoard(flights) {
+  const board = document.getElementById("board");
+  if (!flights.length) {
+    board.innerHTML = `<div class="empty-state">
+      <div class="big">NO TRAFFIC IN RANGE</div>
+      <div>Watching ${CONFIG.RADIUS_KM} km around your location&hellip;</div>
+    </div>`;
+    return;
+  }
+  const rows = flights.slice(0, CONFIG.MAX_ROWS).map(f => `
+    <div class="row">
+      <div class="callsign">${f.callsign}</div>
+      <div class="reg">${f.icao24.toUpperCase()}</div>
+      <div class="route">${Math.round(f.distKm)} km out</div>
+      <div class="alt">${f.altFt != null ? f.altFt.toLocaleString() : "—"}</div>
+      <div class="spd">${f.spdKt != null ? f.spdKt : "—"}</div>
+      <div class="hdg"><span class="hdg-arrow">${headingArrow(f.track)}</span>${f.track != null ? f.track + "°" : "—"}</div>
+    </div>
+  `).join("");
+  board.innerHTML = rows;
+}
+
+/* ============================================================
+   Render: radar SVG
+   ============================================================ */
+function renderRadar(flights) {
+  const svg = document.getElementById("radar-svg");
+  const cx = 200, cy = 200, maxR = 175;
+  let html = "";
+
+  // rings
+  [1, 2, 3, 4].forEach(i => {
+    html += `<circle class="ring" cx="${cx}" cy="${cy}" r="${(maxR/4)*i}" />`;
+  });
+  // crosshair
+  html += `<line class="crosshair" x1="${cx}" y1="${cy-maxR}" x2="${cx}" y2="${cy+maxR}" />`;
+  html += `<line class="crosshair" x1="${cx-maxR}" y1="${cy}" x2="${cx+maxR}" y2="${cy}" />`;
+
+  // sweep
+  html += `<g class="sweep-group" style="transform-origin:${cx}px ${cy}px;">
+    <path d="M ${cx} ${cy} L ${cx} ${cy-maxR} A ${maxR} ${maxR} 0 0 1 ${cx+maxR*Math.sin(0.5)} ${cy-maxR*Math.cos(0.5)} Z"
+      fill="url(#sweepGrad)" opacity="0.5" />
+  </g>`;
+
+  // gradient def
+  html += `<defs><linearGradient id="sweepGrad" x1="0" y1="0" x2="1" y2="0">
+    <stop offset="0%" stop-color="#5FD4D4" stop-opacity="0.35"/>
+    <stop offset="100%" stop-color="#5FD4D4" stop-opacity="0"/>
+  </linearGradient></defs>`;
+
+  // center mark (your location)
+  html += `<circle class="center-mark" cx="${cx}" cy="${cy}" r="4" />`;
+
+  // planes
+  flights.forEach(f => {
+    const r = (f.distKm / CONFIG.RADIUS_KM) * maxR;
+    const rad = (f.brg - 90) * Math.PI / 180; // 0deg = north = up
+    const px = cx + r * Math.cos(rad);
+    const py = cy + r * Math.sin(rad);
+    html += `<circle class="plane-dot" cx="${px}" cy="${py}" r="3.5" />`;
+    html += `<text class="plane-label" x="${px + 7}" y="${py + 3}">${f.callsign}</text>`;
+  });
+
+  svg.innerHTML = html;
+  document.getElementById("radiusLabel").textContent = `RADIUS — ${CONFIG.RADIUS_KM} KM`;
+}
+
+/* ============================================================
+   Radius picker — tap to switch range, re-fetches immediately
+   ============================================================ */
+let activeTimer = null;
+let forceRefresh = false;
+
+function renderRadiusPicker() {
+  const wrap = document.getElementById("radiusPicker");
+  // remove old buttons (keep the label)
+  wrap.querySelectorAll(".rbtn").forEach(b => b.remove());
+  CONFIG.RADIUS_OPTIONS.forEach(km => {
+    const btn = document.createElement("button");
+    btn.className = "rbtn" + (km === CONFIG.RADIUS_KM ? " active" : "");
+    btn.textContent = km + " KM";
+    btn.addEventListener("click", () => {
+      if (km === CONFIG.RADIUS_KM) return;
+      CONFIG.RADIUS_KM = km;
+      renderRadiusPicker();
+      // jump the queue: cancel pending timer and refetch now at the new radius
+      if (activeTimer) clearTimeout(activeTimer);
+      forceRefresh = true;
+      tick();
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+/* ============================================================
+   file:// protocol guard
+   Browsers block fetch() from local files for security reasons,
+   so opening this file by double-clicking it won't pull live data.
+   ============================================================ */
+function checkProtocol() {
+  if (window.location.protocol === "file:") {
+    setStatus("warn", "RUN VIA LOCAL SERVER");
+    document.getElementById("board").innerHTML = `<div class="empty-state">
+      <div class="big">OPENED AS A LOCAL FILE</div>
+      <div>Browsers block live data requests from file:// pages.<br>
+      Serve this folder instead — e.g. run <strong>python3 -m http.server 8000</strong><br>
+      in this folder, then open <strong>http://localhost:8000</strong>.<br>
+      (Hosting it on GitHub Pages also works, and is needed for the iPad.)</div>
+    </div>`;
+    return true;
+  }
+  return false;
+}
+
+
+
+async function tick() {
+  if (checkProtocol()) {
+    // Don't keep polling against a blocked protocol — just stop here.
+    return;
+  }
+
+  const raw = await fetchFlights();
+  const flights = parseStates(raw);
+
+  renderBoard(flights);
+  renderRadar(flights);
+
+  document.getElementById("lastUpdate").textContent = `LAST UPDATE — ${fmtTime(new Date())}`;
+  document.getElementById("countCount").textContent = `${flights.length} AIRCRAFT TRACKED`;
+
+  // Backoff: if OpenSky is failing repeatedly, slow down requests
+  // so we don't hammer it (and so any rate limit clears faster).
+  let delay = CONFIG.REFRESH_MS;
+  if (consecutiveFailures >= 1) delay = CONFIG.REFRESH_MS * 2;
+  if (consecutiveFailures >= 3) delay = CONFIG.REFRESH_MS * 4;
+  if (consecutiveFailures >= 6) delay = 120000; // cap at 2 min
+  if (forceRefresh) { delay = CONFIG.REFRESH_MS; forceRefresh = false; }
+
+  activeTimer = setTimeout(tick, delay);
+}
+
+renderRadiusPicker();
+tick();
+
+// Prevent iOS Safari pull-to-refresh / bounce so it feels app-like
+document.body.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
+</script>
+</body>
+</html>
