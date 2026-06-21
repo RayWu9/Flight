@@ -370,7 +370,7 @@
       <div id="board">
         <div class="empty-state">
           <div class="big">SCANNING AIRSPACE</div>
-          <div>Waiting for first response from OpenSky&hellip;</div>
+          <div>Waiting for first response from airplanes.live&hellip;</div>
         </div>
       </div>
     </div>
@@ -395,9 +395,8 @@ const CONFIG = {
   RADIUS_OPTIONS: [20, 40, 80, 150], // <-- tappable radius choices shown in header
   REFRESH_MS: 15000,        // poll every 15s — safe now that requests go through your authenticated Worker
   MAX_ROWS: 14              // max rows shown on the board
-  // Note: OpenSky credentials now live in the Cloudflare Worker (worker.js),
-  // not here — the Worker handles auth server-side, so the browser never
-  // needs them directly.
+  // Note: flight data comes from airplanes.live's free public API —
+  // no credentials, Worker, or proxy needed (see fetchFlights below).
 };
 
 // Quick-pick presets shown in the location dropdown. Add/remove freely.
@@ -453,27 +452,28 @@ function bearingFromCenter(lat1, lon1, lat2, lon2) {
 }
 
 /* ============================================================
-   Flight data fetch — via your own Cloudflare Worker
-   The Worker runs server-side (not in the browser), so it handles
-   OpenSky's OAuth2 login and the actual data request with no CORS
-   restriction at all — server-to-server calls aren't subject to CORS.
-   This replaces the old direct-OpenSky / proxy-chain approach, which
-   was unreliable (OpenSky's auth endpoint has no CORS headers, and
-   free public proxies are flaky/rate-limited).
+   Flight data fetch — via airplanes.live's free public API
+   No auth, no API key, no CORS issues, no proxy needed — this is a
+   community-run ADS-B aggregator built to be called directly from
+   browsers. Rate limited to 1 request/second (we poll far slower
+   than that), non-commercial use, no formal SLA/uptime guarantee
+   (same general spirit as OpenSky, just simpler to actually reach).
+   Docs: https://airplanes.live/api-guide/
    ============================================================ */
-const WORKER_URL = "https://flightwall-proxy.raymondwu999.workers.dev";
+const AIRPLANES_LIVE_BASE = "https://api.airplanes.live/v2";
 
 let consecutiveFailures = 0;
 let lastGoodData = null;
 
 async function fetchFlights() {
-  const box = bbox(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, CONFIG.RADIUS_KM);
-  const url = `${WORKER_URL}/?lamin=${box.lamin}&lomin=${box.lomin}&lamax=${box.lamax}&lomax=${box.lomax}`;
+  // /point/[lat]/[lon]/[radius] — radius is in nautical miles, max 250
+  const radiusNm = Math.min(CONFIG.RADIUS_KM / 1.852, 250);
+  const url = `${AIRPLANES_LIVE_BASE}/point/${CONFIG.CENTER_LAT}/${CONFIG.CENTER_LON}/${radiusNm.toFixed(1)}`;
 
   try {
     console.log("FlightWall: requesting", url);
     const res = await fetch(url);
-    console.log("FlightWall: worker responded with status", res.status);
+    console.log("FlightWall: airplanes.live responded with status", res.status);
 
     if (res.status === 429) {
       consecutiveFailures++;
@@ -487,10 +487,10 @@ async function fetchFlights() {
     }
 
     const data = await res.json();
-    if (!data || !Array.isArray(data.states)) {
+    if (!data || !Array.isArray(data.ac)) {
       consecutiveFailures++;
       setStatus("warn", "OFFLINE (bad payload)");
-      console.warn("FlightWall: unexpected payload from worker:", data);
+      console.warn("FlightWall: unexpected payload from airplanes.live:", data);
       return lastGoodData;
     }
 
@@ -502,7 +502,7 @@ async function fetchFlights() {
   } catch (e) {
     consecutiveFailures++;
     setStatus("warn", "OFFLINE (network error)");
-    console.warn("FlightWall: fetch to worker threw an error:", e);
+    console.warn("FlightWall: fetch to airplanes.live threw an error:", e);
     return lastGoodData;
   }
 }
@@ -515,25 +515,27 @@ function setStatus(kind, text) {
 }
 
 /* ============================================================
-   Parse OpenSky state vectors into flight objects
-   index ref: 0 icao24, 1 callsign, 5 lon, 6 lat, 7 baro_alt,
-              9 velocity(m/s), 10 true_track, 13 geo_alt
+   Parse airplanes.live aircraft objects into flight objects.
+   Unlike OpenSky's positional arrays, these are named fields:
+   hex, flight (callsign), lat, lon, alt_baro, gs (groundspeed kt),
+   track (heading deg). alt_baro can be the string "ground".
    ============================================================ */
 function parseStates(raw) {
-  if (!raw || !raw.states) return [];
-  return raw.states
-    .filter(s => s[5] != null && s[6] != null)
-    .map(s => {
-      const lon = s[5], lat = s[6];
+  if (!raw || !raw.ac) return [];
+  return raw.ac
+    .filter(a => a.lat != null && a.lon != null)
+    .map(a => {
+      const lat = a.lat, lon = a.lon;
       const distKm = haversineKm(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, lat, lon);
       const brg = bearingFromCenter(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, lat, lon);
+      const altFt = (typeof a.alt_baro === "number") ? Math.round(a.alt_baro) : (a.alt_baro === "ground" ? 0 : null);
       return {
-        icao24: s[0],
-        callsign: (s[1] || "").trim() || "—",
+        icao24: a.hex || "—",
+        callsign: (a.flight || "").trim() || "—",
         lon, lat,
-        altFt: s[7] != null ? Math.round(s[7] * 3.28084) : null,
-        spdKt: s[9] != null ? Math.round(s[9] * 1.94384) : null,
-        track: s[10] != null ? Math.round(s[10]) : null,
+        altFt,
+        spdKt: a.gs != null ? Math.round(a.gs) : null,
+        track: a.track != null ? Math.round(a.track) : null,
         distKm,
         brg
       };
