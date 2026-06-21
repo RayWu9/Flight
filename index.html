@@ -4,6 +4,7 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
 <meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="FlightWall">
 <title>FlightWall</title>
@@ -481,39 +482,65 @@ async function getOpenSkyToken() {
   }
 }
 
+// OpenSky blocks anonymous cross-origin browser requests (no CORS header
+// for any origin but their own site). Authenticated requests DO get CORS
+// headers, so if you've set OPENSKY_CLIENT_ID/SECRET above, we call it
+// directly. Otherwise we route through a free public CORS proxy.
+const CORS_PROXIES = [
+  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
+  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`
+];
+
 async function fetchFlights() {
   const box = bbox(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, CONFIG.RADIUS_KM);
-  const url = `https://opensky-network.org/api/states/all?lamin=${box.lamin}&lomin=${box.lomin}&lamax=${box.lamax}&lomax=${box.lomax}`;
+  const targetUrl = `https://opensky-network.org/api/states/all?lamin=${box.lamin}&lomin=${box.lomin}&lamax=${box.lamax}&lomax=${box.lomax}`;
 
   const headers = {};
   const token = await getOpenSkyToken();
   if (token) headers["Authorization"] = `Bearer ${token}`;
 
-  try {
-    const res = await fetch(url, { headers });
+  // Build the list of URLs to try in order: direct call first (works when
+  // authenticated, or if OpenSky ever opens up CORS), then proxies.
+  const attempts = token
+    ? [targetUrl, ...CORS_PROXIES.map(p => p(targetUrl))]
+    : [...CORS_PROXIES.map(p => p(targetUrl)), targetUrl];
 
-    if (res.status === 429) {
-      // Rate limited — back off, reuse last known-good data, don't hammer it
-      consecutiveFailures++;
-      setStatus("warn", "RATE LIMITED");
-      return lastGoodData;
-    }
-    if (!res.ok) {
-      consecutiveFailures++;
-      setStatus("warn", `HTTP ${res.status}`);
-      return lastGoodData;
-    }
+  let lastError = null;
 
-    const data = await res.json();
-    consecutiveFailures = 0;
-    lastGoodData = data;
-    setStatus("ok", "LIVE");
-    return data;
-  } catch (e) {
-    consecutiveFailures++;
-    setStatus("warn", "OFFLINE");
-    return lastGoodData;
+  for (const url of attempts) {
+    try {
+      const res = await fetch(url, { headers });
+
+      if (res.status === 429) {
+        consecutiveFailures++;
+        setStatus("warn", "RATE LIMITED");
+        return lastGoodData;
+      }
+      if (!res.ok) {
+        lastError = `HTTP ${res.status}`;
+        continue; // try next proxy
+      }
+
+      const data = await res.json();
+      if (!data || !Array.isArray(data.states)) {
+        lastError = "bad payload";
+        continue;
+      }
+
+      consecutiveFailures = 0;
+      lastGoodData = data;
+      setStatus("ok", "LIVE");
+      return data;
+    } catch (e) {
+      lastError = e.message || "network error";
+      continue; // try next proxy
+    }
   }
+
+  // every attempt failed
+  consecutiveFailures++;
+  setStatus("warn", lastGoodData ? "OFFLINE — RETRYING" : "OFFLINE");
+  return lastGoodData;
 }
 
 function setStatus(kind, text) {
@@ -738,6 +765,10 @@ function checkProtocol() {
 }
 
 
+
+function fmtTime(d) {
+  return d.toTimeString().slice(0,8);
+}
 
 async function tick() {
   if (checkProtocol()) {
