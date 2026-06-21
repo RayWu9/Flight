@@ -12,6 +12,7 @@
   :root{
     --bg: #0B0F14;
     --bg-panel: #11161D;
+    --bg-raised: #161D26;
     --amber: #F2C879;
     --amber-dim: #8A6F3F;
     --cyan: #5FD4D4;
@@ -19,6 +20,8 @@
     --slate: #5A6472;
     --slate-bright: #8C97A6;
     --warn: #E0584A;
+    --climb: #6FCF7A;
+    --descend: #E0A85F;
     --line: #1C232C;
     --mono: 'SF Mono', 'Courier New', monospace;
     --grot: -apple-system, BlinkMacSystemFont, 'Helvetica Neue', sans-serif;
@@ -50,67 +53,79 @@
     display: flex;
     align-items: center;
     justify-content: space-between;
-    gap: 12px;
-    padding: 14px 22px 10px;
+    gap: 10px;
+    padding: 12px 18px 9px;
     border-bottom: 1px solid var(--line);
     flex-shrink: 0;
     flex-wrap: wrap;
-    row-gap: 10px;
+    row-gap: 8px;
   }
   .brand {
     font-family: var(--mono);
-    font-size: 15px;
-    letter-spacing: 0.18em;
+    font-size: 14px;
+    letter-spacing: 0.16em;
     color: var(--amber);
     text-transform: uppercase;
+    flex-shrink: 0;
   }
   .brand span { color: var(--cyan); }
-  .status-line {
-    font-family: var(--mono);
-    font-size: 11px;
-    color: var(--slate);
-    letter-spacing: 0.08em;
+  .header-controls {
     display: flex;
     align-items: center;
     gap: 8px;
+    flex-wrap: wrap;
+    flex: 1;
+    justify-content: flex-end;
+  }
+  .status-line {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--slate);
+    letter-spacing: 0.06em;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-shrink: 0;
   }
   .dot {
     width: 7px; height: 7px; border-radius: 50%;
     background: var(--cyan);
     box-shadow: 0 0 6px var(--cyan);
     animation: pulse 2.2s ease-in-out infinite;
+    flex-shrink: 0;
   }
   .dot.warn { background: var(--warn); box-shadow: 0 0 6px var(--warn); animation: none; }
   @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:0.35} }
 
-  .radius-picker {
-    display: flex;
-    align-items: center;
-    gap: 6px;
-    font-family: var(--mono);
-  }
-  .radius-picker .rlabel {
-    font-size: 10px;
-    color: var(--slate);
-    letter-spacing: 0.1em;
-    margin-right: 4px;
-  }
-  .rbtn {
+  .pill-btn {
     background: transparent;
     border: 1px solid var(--line);
     color: var(--slate-bright);
     font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    padding: 5px 10px;
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    padding: 5px 9px;
     border-radius: 3px;
     cursor: pointer;
+    white-space: nowrap;
   }
-  .rbtn:active { transform: scale(0.96); }
-  .rbtn.active {
+  .pill-btn:active { transform: scale(0.96); }
+  .pill-btn.active {
     border-color: var(--cyan);
     color: var(--cyan);
     background: rgba(95,212,212,0.08);
+  }
+  .pill-group {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    font-family: var(--mono);
+  }
+  .pill-group .glabel {
+    font-size: 9px;
+    color: var(--slate);
+    letter-spacing: 0.08em;
+    margin-right: 2px;
   }
 
   /* ===== LOCATION PICKER ===== */
@@ -120,15 +135,15 @@
     border: 1px solid var(--line);
     color: var(--slate-bright);
     font-family: var(--mono);
-    font-size: 11px;
-    letter-spacing: 0.04em;
-    padding: 5px 10px;
+    font-size: 10.5px;
+    letter-spacing: 0.03em;
+    padding: 5px 9px;
     border-radius: 3px;
     cursor: pointer;
     display: flex;
     align-items: center;
-    gap: 6px;
-    max-width: 220px;
+    gap: 5px;
+    max-width: 170px;
     overflow: hidden;
   }
   .loc-btn .pin { color: var(--amber); font-size: 11px; flex-shrink: 0; }
@@ -139,8 +154,8 @@
     display: none;
     position: absolute;
     top: calc(100% + 8px);
-    left: 0;
-    z-index: 50;
+    right: 0;
+    z-index: 60;
     background: var(--bg-panel);
     border: 1px solid var(--line);
     border-radius: 6px;
@@ -169,18 +184,8 @@
   .loc-panel .preset .code { color: var(--amber); font-weight: 600; margin-right: 8px; }
   .loc-panel .preset.active { color: var(--cyan); }
 
-  .loc-custom {
-    margin-top: 10px;
-    padding-top: 10px;
-    border-top: 1px solid var(--line);
-  }
-  .loc-custom .lbl {
-    font-family: var(--mono);
-    font-size: 9px;
-    color: var(--slate);
-    letter-spacing: 0.1em;
-    margin-bottom: 6px;
-  }
+  .loc-custom { margin-top: 10px; padding-top: 10px; border-top: 1px solid var(--line); }
+  .loc-custom .lbl { font-family: var(--mono); font-size: 9px; color: var(--slate); letter-spacing: 0.1em; margin-bottom: 6px; }
   .loc-custom .row2 { display: flex; gap: 6px; margin-bottom: 8px; }
   .loc-custom input {
     flex: 1;
@@ -206,6 +211,35 @@
     cursor: pointer;
   }
 
+  /* ===== TRACK-LOCK SEARCH ===== */
+  .track-picker { position: relative; }
+  .track-input-wrap {
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    background: transparent;
+    border: 1px solid var(--line);
+    border-radius: 3px;
+    padding: 4px 8px;
+  }
+  .track-input-wrap input {
+    background: transparent;
+    border: none;
+    color: var(--amber);
+    font-family: var(--mono);
+    font-size: 10.5px;
+    width: 88px;
+    outline: none;
+    letter-spacing: 0.04em;
+  }
+  .track-input-wrap input::placeholder { color: var(--slate); }
+  .track-input-wrap.locked { border-color: var(--cyan); background: rgba(95,212,212,0.08); }
+  .track-clear {
+    background: none; border: none; color: var(--slate); cursor: pointer;
+    font-family: var(--mono); font-size: 12px; padding: 0 2px; display: none;
+  }
+  .track-input-wrap.locked .track-clear { display: block; color: var(--cyan); }
+
   /* ===== MAIN SPLIT ===== */
   main {
     flex: 1;
@@ -222,21 +256,23 @@
       radial-gradient(circle at center, rgba(95,212,212,0.05) 0%, rgba(95,212,212,0) 70%),
       var(--bg-panel);
     overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
   }
+  #radar-svg-wrap { flex: 1; min-height: 0; position: relative; }
   #radar-svg { width: 100%; height: 100%; display: block; }
   .ring { fill: none; stroke: var(--cyan-dim); stroke-width: 1; }
   .crosshair { stroke: var(--cyan-dim); stroke-width: 1; }
-  .sweep-group { transform-origin: center; animation: sweep 6s linear infinite; }
   @keyframes sweep { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
-  .plane-dot { fill: var(--amber); }
-  .plane-dot.selected { fill: var(--cyan); }
-  .plane-trail { stroke: var(--amber-dim); stroke-width: 1; opacity: 0.6; }
+  .sweep-group { transform-origin: center; }
   .plane-label {
     font-family: var(--mono);
     font-size: 9px;
     fill: var(--slate-bright);
     letter-spacing: 0.03em;
   }
+  .plane-label.locked { fill: var(--cyan); font-weight: 600; }
   .radius-label {
     position: absolute;
     bottom: 10px; left: 14px;
@@ -247,6 +283,53 @@
   }
   .center-mark { fill: var(--amber); }
 
+  #nearest-blob {
+    position: absolute;
+    top: 10px; right: 10px;
+    background: rgba(11,15,20,0.88);
+    border: 1px solid var(--cyan-dim);
+    border-radius: 6px;
+    padding: 10px 12px;
+    font-family: var(--mono);
+    max-width: 168px;
+    backdrop-filter: blur(2px);
+    display: none;
+  }
+  #nearest-blob.show { display: block; }
+  #nearest-blob .nb-label {
+    font-size: 8px;
+    color: var(--cyan);
+    letter-spacing: 0.12em;
+    margin-bottom: 5px;
+  }
+  #nearest-blob .nb-callsign {
+    font-size: 17px;
+    font-weight: 700;
+    color: var(--amber);
+    letter-spacing: 0.02em;
+    margin-bottom: 4px;
+  }
+  #nearest-blob .nb-sub { font-size: 10px; color: var(--slate-bright); margin-bottom: 2px; line-height: 1.5; }
+  #nearest-blob .nb-row { display: flex; justify-content: space-between; font-size: 10px; margin-top: 6px; padding-top: 6px; border-top: 1px solid var(--line); }
+  #nearest-blob .nb-row .v { color: var(--cyan); }
+  #nearest-blob .nb-vrate { font-size: 9px; margin-top: 4px; display: flex; align-items: center; gap: 4px; }
+  #nearest-blob .nb-vrate.climb { color: var(--climb); }
+  #nearest-blob .nb-vrate.descend { color: var(--descend); }
+  #nearest-blob .nb-vrate.level { color: var(--slate); }
+  #nearest-blob .nb-track-btn {
+    margin-top: 8px;
+    width: 100%;
+    background: rgba(95,212,212,0.08);
+    border: 1px solid var(--cyan-dim);
+    color: var(--cyan);
+    font-family: var(--mono);
+    font-size: 9.5px;
+    letter-spacing: 0.06em;
+    padding: 6px;
+    border-radius: 3px;
+    cursor: pointer;
+  }
+
   /* ===== BOARD (split-flap list) ===== */
   #board-wrap {
     flex: 1;
@@ -256,11 +339,11 @@
   }
   .board-head {
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr 1.3fr 0.8fr 0.8fr 0.9fr;
-    padding: 10px 22px;
+    grid-template-columns: 1fr 0.85fr 1.3fr 0.75fr 0.65fr 0.75fr 0.6fr;
+    padding: 9px 18px;
     font-family: var(--mono);
-    font-size: 10px;
-    letter-spacing: 0.12em;
+    font-size: 9.5px;
+    letter-spacing: 0.1em;
     color: var(--slate);
     border-bottom: 1px solid var(--line);
     flex-shrink: 0;
@@ -272,23 +355,36 @@
   }
   .row {
     display: grid;
-    grid-template-columns: 1.1fr 0.9fr 1.3fr 0.8fr 0.8fr 0.9fr;
+    grid-template-columns: 1fr 0.85fr 1.3fr 0.75fr 0.65fr 0.75fr 0.6fr;
     align-items: center;
-    padding: 13px 22px;
+    padding: 11px 18px;
     border-bottom: 1px solid var(--line);
     font-family: var(--mono);
     animation: flapIn 0.4s ease-out;
+    cursor: pointer;
   }
+  .row:active { background: var(--bg-raised); }
+  .row.locked { background: rgba(95,212,212,0.06); border-left: 2px solid var(--cyan); }
+  .row.nearest { background: rgba(242,200,121,0.05); }
   @keyframes flapIn {
-    from { opacity: 0; transform: translateY(-6px) scaleY(0.8); }
+    from { opacity: 0; transform: translateY(-6px) scaleY(0.85); }
     to { opacity: 1; transform: translateY(0) scaleY(1); }
   }
-  .row .callsign { font-size: 18px; font-weight: 600; color: var(--amber); letter-spacing: 0.05em; }
-  .row .reg { font-size: 11px; color: var(--slate); }
-  .row .route { font-size: 13px; color: var(--slate-bright); }
-  .row .alt, .row .spd { font-size: 13px; color: var(--cyan); }
-  .row .hdg { font-size: 13px; color: var(--slate-bright); display: flex; align-items: center; gap: 6px; }
-  .hdg-arrow { display: inline-block; font-size: 12px; }
+  .row .callsign-cell { display: flex; flex-direction: column; gap: 1px; }
+  .row .callsign { font-size: 16px; font-weight: 600; color: var(--amber); letter-spacing: 0.04em; }
+  .row.locked .callsign { color: var(--cyan); }
+  .row .operator { font-size: 9px; color: var(--slate); letter-spacing: 0.02em; }
+  .row .reg { font-size: 10.5px; color: var(--slate); }
+  .row .actype { font-size: 11.5px; color: var(--slate-bright); }
+  .row .actype .typecode { color: var(--slate); font-size: 9px; display: block; }
+  .row .alt { font-size: 12px; color: var(--cyan); }
+  .row .spd { font-size: 12px; color: var(--cyan); }
+  .row .hdg { font-size: 12px; color: var(--slate-bright); display: flex; align-items: center; gap: 5px; }
+  .hdg-arrow { display: inline-block; font-size: 11px; }
+  .vrate-icon { font-size: 11px; display: inline-block; width: 14px; text-align: center; }
+  .vrate-icon.climb { color: var(--climb); }
+  .vrate-icon.descend { color: var(--descend); }
+  .vrate-icon.level { color: var(--slate); }
 
   .empty-state {
     display: flex;
@@ -305,20 +401,38 @@
   }
   .empty-state .big { font-size: 15px; color: var(--slate-bright); }
 
-  /* scrollbar minimal */
   #board::-webkit-scrollbar { width: 4px; }
   #board::-webkit-scrollbar-thumb { background: var(--line); }
 
   footer {
-    padding: 8px 22px;
+    padding: 7px 18px;
     border-top: 1px solid var(--line);
     font-family: var(--mono);
-    font-size: 10px;
+    font-size: 9.5px;
     color: var(--slate);
-    letter-spacing: 0.08em;
+    letter-spacing: 0.06em;
     display: flex;
     justify-content: space-between;
     flex-shrink: 0;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  /* ===== iPad / tablet tuning ===== */
+  @media (max-width: 1024px) {
+    .brand { font-size: 13px; }
+    header { padding: 10px 14px 8px; }
+    .board-head, .row { padding-left: 14px; padding-right: 14px; }
+  }
+  @media (max-width: 850px) {
+    main { flex-direction: column; }
+    #radar-wrap { flex: 0 0 38%; border-right: none; border-bottom: 1px solid var(--line); }
+    .board-head, .row { grid-template-columns: 1fr 1fr 1.1fr 0.8fr 0.8fr; }
+    .board-head div:nth-child(2), .row .reg { display: none; }
+  }
+  @media (max-width: 600px) {
+    .board-head, .row { grid-template-columns: 1.2fr 1fr 0.8fr 0.8fr; }
+    .board-head div:nth-child(3), .row .actype { display: none; }
   }
 </style>
 </head>
@@ -326,36 +440,61 @@
 <div id="app">
   <header>
     <div class="brand">FLIGHT<span>WALL</span></div>
-    <div class="loc-picker">
-      <button class="loc-btn" id="locBtn">
-        <span class="pin">⊙</span><span class="name" id="locBtnLabel">Sydney Airport</span>
-      </button>
-      <div class="loc-panel" id="locPanel">
-        <!-- presets injected by JS -->
-        <div class="loc-custom">
-          <div class="lbl">CUSTOM COORDINATES</div>
-          <div class="row2">
-            <input type="text" id="customLat" placeholder="Lat e.g. -33.9399" inputmode="decimal">
-            <input type="text" id="customLon" placeholder="Lon e.g. 151.1753" inputmode="decimal">
-          </div>
-          <button id="customApply">USE THESE COORDINATES</button>
+    <div class="header-controls">
+      <div class="track-picker">
+        <div class="track-input-wrap" id="trackInputWrap">
+          <input type="text" id="trackInput" placeholder="Track callsign / ID" autocapitalize="characters" autocomplete="off">
+          <button class="track-clear" id="trackClear">✕</button>
         </div>
       </div>
-    </div>
-    <div class="radius-picker" id="radiusPicker">
-      <span class="rlabel">RANGE</span>
-      <!-- buttons injected by JS based on RADIUS_OPTIONS -->
-    </div>
-    <div class="status-line">
-      <span class="dot" id="statusDot"></span>
-      <span id="statusText">CONNECTING</span>
+      <div class="pill-group" id="altFilterGroup">
+        <button class="pill-btn active" id="altFilterBtn">HIDE GROUND</button>
+      </div>
+      <div class="pill-group" id="unitGroup">
+        <span class="glabel">UNITS</span>
+      </div>
+      <div class="loc-picker">
+        <button class="loc-btn" id="locBtn">
+          <span class="pin">⊙</span><span class="name" id="locBtnLabel">Sydney Airport</span>
+        </button>
+        <div class="loc-panel" id="locPanel">
+          <div class="loc-custom">
+            <div class="lbl">CUSTOM COORDINATES</div>
+            <div class="row2">
+              <input type="text" id="customLat" placeholder="Lat e.g. -33.9399" inputmode="decimal">
+              <input type="text" id="customLon" placeholder="Lon e.g. 151.1753" inputmode="decimal">
+            </div>
+            <button id="customApply">USE THESE COORDINATES</button>
+          </div>
+        </div>
+      </div>
+      <div class="pill-group" id="radiusPicker">
+        <span class="glabel">RANGE</span>
+      </div>
+      <div class="status-line">
+        <span class="dot" id="statusDot"></span>
+        <span id="statusText">CONNECTING</span>
+      </div>
     </div>
   </header>
 
   <main>
     <div id="radar-wrap">
-      <svg id="radar-svg" viewBox="0 0 400 400"></svg>
-      <div class="radius-label" id="radiusLabel">RADIUS — KM</div>
+      <div id="radar-svg-wrap">
+        <svg id="radar-svg" viewBox="0 0 400 400"></svg>
+        <div class="radius-label" id="radiusLabel">RADIUS — KM</div>
+        <div id="nearest-blob">
+          <div class="nb-label">NEAREST AIRCRAFT</div>
+          <div class="nb-callsign" id="nbCallsign">—</div>
+          <div class="nb-sub" id="nbOperator">—</div>
+          <div class="nb-sub" id="nbType">—</div>
+          <div class="nb-row"><span>DIST</span><span class="v" id="nbDist">—</span></div>
+          <div class="nb-row"><span>ALT</span><span class="v" id="nbAlt">—</span></div>
+          <div class="nb-row"><span>SPD</span><span class="v" id="nbSpd">—</span></div>
+          <div class="nb-vrate" id="nbVrate">—</div>
+          <button class="nb-track-btn" id="nbTrackBtn">TRACK THIS FLIGHT</button>
+        </div>
+      </div>
     </div>
 
     <div id="board-wrap">
@@ -363,9 +502,10 @@
         <div>CALLSIGN</div>
         <div>REG</div>
         <div>AIRCRAFT</div>
-        <div>ALT FT</div>
-        <div>SPD KT</div>
+        <div id="altHeadLabel">ALT FT</div>
+        <div id="spdHeadLabel">SPD KT</div>
         <div>HDG</div>
+        <div>V/S</div>
       </div>
       <div id="board">
         <div class="empty-state">
@@ -385,21 +525,20 @@
 <script>
 /* ============================================================
    FlightWall — config
-   Edit these three values for your location.
    ============================================================ */
 const CONFIG = {
   CENTER_LAT: -33.9399,     // default: Sydney Airport (YSSY)
   CENTER_LON: 151.1753,
   LOCATION_NAME: "Sydney Airport",
-  RADIUS_KM: 40,            // <-- default/starting radius in km
-  RADIUS_OPTIONS: [20, 40, 80, 150], // <-- tappable radius choices shown in header
-  REFRESH_MS: 15000,        // poll every 15s — safe now that requests go through your authenticated Worker
-  MAX_ROWS: 14              // max rows shown on the board
-  // Note: flight data comes from airplanes.live's free public API —
-  // no credentials, Worker, or proxy needed (see fetchFlights below).
+  RADIUS_KM: 40,
+  RADIUS_OPTIONS: [20, 40, 80, 150],
+  SWEEP_SECONDS: 8,         // radar sweep duration — refresh rate is locked to this
+  MAX_ROWS: 14,
+  HIDE_GROUND: true,        // filter out altitude-0 / on-ground traffic
+  UNITS: "metric"           // "metric" (km, m) or "imperial" (mi, ft) — speed/distance toggle
 };
 
-// Quick-pick presets shown in the location dropdown. Add/remove freely.
+// Quick-pick presets shown in the location dropdown.
 const LOCATION_PRESETS = [
   { code: "SYD", name: "Sydney Airport",     lat: -33.9399, lon: 151.1753 },
   { code: "MEL", name: "Melbourne Airport",  lat: -37.6690, lon: 144.8410 },
@@ -410,8 +549,8 @@ const LOCATION_PRESETS = [
   { code: "LHR", name: "London Heathrow",    lat: 51.4700,  lon: -0.4543 }
 ];
 
-// Restore a saved location from a previous session, if present
-(function restoreSavedLocation() {
+// Restore saved preferences from a previous session
+(function restoreSaved() {
   try {
     const saved = JSON.parse(localStorage.getItem("flightwall_location"));
     if (saved && typeof saved.lat === "number" && typeof saved.lon === "number") {
@@ -419,24 +558,20 @@ const LOCATION_PRESETS = [
       CONFIG.CENTER_LON = saved.lon;
       CONFIG.LOCATION_NAME = saved.name || "Custom location";
     }
-  } catch (e) { /* no saved location yet, use default */ }
+  } catch (e) { /* none saved yet */ }
+  try {
+    const savedUnits = localStorage.getItem("flightwall_units");
+    if (savedUnits === "metric" || savedUnits === "imperial") CONFIG.UNITS = savedUnits;
+  } catch (e) { /* none saved yet */ }
+  try {
+    const savedHideGround = localStorage.getItem("flightwall_hide_ground");
+    if (savedHideGround !== null) CONFIG.HIDE_GROUND = savedHideGround === "true";
+  } catch (e) { /* none saved yet */ }
 })();
 
 /* ============================================================
    Geometry helpers
    ============================================================ */
-function kmToDegLat(km) { return km / 110.574; }
-function kmToDegLon(km, atLat) {
-  return km / (111.320 * Math.cos(atLat * Math.PI / 180));
-}
-function bbox(lat, lon, radiusKm) {
-  const dLat = kmToDegLat(radiusKm);
-  const dLon = kmToDegLon(radiusKm, lat);
-  return {
-    lamin: lat - dLat, lamax: lat + dLat,
-    lomin: lon - dLon, lomax: lon + dLon
-  };
-}
 function haversineKm(lat1, lon1, lat2, lon2) {
   const R = 6371;
   const dLat = (lat2 - lat1) * Math.PI / 180;
@@ -452,12 +587,9 @@ function bearingFromCenter(lat1, lon1, lat2, lon2) {
 }
 
 /* ============================================================
-   Flight data fetch — via airplanes.live's free public API
-   No auth, no API key, no CORS issues, no proxy needed — this is a
-   community-run ADS-B aggregator built to be called directly from
-   browsers. Rate limited to 1 request/second (we poll far slower
-   than that), non-commercial use, no formal SLA/uptime guarantee
-   (same general spirit as OpenSky, just simpler to actually reach).
+   Flight data fetch — airplanes.live free public API
+   No auth, no API key, no proxy needed. Rate limited to 1 req/sec
+   on their end; we poll far slower than that (tied to radar sweep).
    Docs: https://airplanes.live/api-guide/
    ============================================================ */
 const AIRPLANES_LIVE_BASE = "https://api.airplanes.live/v2";
@@ -466,14 +598,11 @@ let consecutiveFailures = 0;
 let lastGoodData = null;
 
 async function fetchFlights() {
-  // /point/[lat]/[lon]/[radius] — radius is in nautical miles, max 250
   const radiusNm = Math.min(CONFIG.RADIUS_KM / 1.852, 250);
   const url = `${AIRPLANES_LIVE_BASE}/point/${CONFIG.CENTER_LAT}/${CONFIG.CENTER_LON}/${radiusNm.toFixed(1)}`;
 
   try {
-    console.log("FlightWall: requesting", url);
     const res = await fetch(url);
-    console.log("FlightWall: airplanes.live responded with status", res.status);
 
     if (res.status === 429) {
       consecutiveFailures++;
@@ -490,7 +619,6 @@ async function fetchFlights() {
     if (!data || !Array.isArray(data.ac)) {
       consecutiveFailures++;
       setStatus("warn", "OFFLINE (bad payload)");
-      console.warn("FlightWall: unexpected payload from airplanes.live:", data);
       return lastGoodData;
     }
 
@@ -502,7 +630,7 @@ async function fetchFlights() {
   } catch (e) {
     consecutiveFailures++;
     setStatus("warn", "OFFLINE (network error)");
-    console.warn("FlightWall: fetch to airplanes.live threw an error:", e);
+    console.warn("FlightWall: fetch threw an error:", e);
     return lastGoodData;
   }
 }
@@ -516,9 +644,9 @@ function setStatus(kind, text) {
 
 /* ============================================================
    Parse airplanes.live aircraft objects into flight objects.
-   Unlike OpenSky's positional arrays, these are named fields:
-   hex, flight (callsign), lat, lon, alt_baro, gs (groundspeed kt),
-   track (heading deg). alt_baro can be the string "ground".
+   Named fields: hex, flight (callsign), r (registration), t (type
+   code), desc (full type description), ownOp (operator/airline),
+   lat, lon, alt_baro, gs (kt), track (deg), baro_rate (ft/min).
    ============================================================ */
 function parseStates(raw) {
   if (!raw || !raw.ac) return [];
@@ -528,19 +656,27 @@ function parseStates(raw) {
       const lat = a.lat, lon = a.lon;
       const distKm = haversineKm(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, lat, lon);
       const brg = bearingFromCenter(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, lat, lon);
-      const altFt = (typeof a.alt_baro === "number") ? Math.round(a.alt_baro) : (a.alt_baro === "ground" ? 0 : null);
+      const onGround = a.alt_baro === "ground";
+      const altFt = (typeof a.alt_baro === "number") ? Math.round(a.alt_baro) : (onGround ? 0 : null);
       return {
-        icao24: a.hex || "—",
+        icao24: (a.hex || "—").toUpperCase(),
         callsign: (a.flight || "").trim() || "—",
+        reg: a.r || null,
+        typeCode: a.t || null,
+        typeDesc: a.desc || null,
+        operator: a.ownOp || null,
         lon, lat,
         altFt,
+        onGround,
         spdKt: a.gs != null ? Math.round(a.gs) : null,
         track: a.track != null ? Math.round(a.track) : null,
+        vrate: a.baro_rate != null ? Math.round(a.baro_rate) : null,
         distKm,
         brg
       };
     })
     .filter(f => f.distKm <= CONFIG.RADIUS_KM)
+    .filter(f => !CONFIG.HIDE_GROUND || !f.onGround)
     .sort((a, b) => a.distKm - b.distKm);
 }
 
@@ -550,83 +686,227 @@ function headingArrow(track) {
   return arrows[Math.round(track / 45) % 8];
 }
 
+function vrateInfo(vrate) {
+  if (vrate == null) return { icon: "•", cls: "level", label: "—" };
+  if (vrate > 150) return { icon: "▲", cls: "climb", label: `+${vrate} ft/min` };
+  if (vrate < -150) return { icon: "▼", cls: "descend", label: `${vrate} ft/min` };
+  return { icon: "•", cls: "level", label: "level" };
+}
+
 /* ============================================================
-   Render: board
+   Unit conversion helpers
+   ============================================================ */
+function fmtDist(km) {
+  if (CONFIG.UNITS === "imperial") return `${Math.round(km / 1.60934)} mi`;
+  return `${Math.round(km)} km`;
+}
+function fmtAlt(ft) {
+  if (ft == null) return "—";
+  if (CONFIG.UNITS === "imperial") return ft.toLocaleString() + " ft";
+  return Math.round(ft * 0.3048).toLocaleString() + " m";
+}
+function fmtSpd(kt) {
+  if (kt == null) return "—";
+  if (CONFIG.UNITS === "imperial") return Math.round(kt * 1.15078) + " mph";
+  return Math.round(kt * 1.852) + " km/h";
+}
+
+/* ============================================================
+   Track-lock — follow a specific aircraft by callsign or hex ID
+   ============================================================ */
+let trackedId = null;
+
+function setTrackedId(id) {
+  trackedId = id ? id.trim().toUpperCase() : null;
+  const wrap = document.getElementById("trackInputWrap");
+  const input = document.getElementById("trackInput");
+  wrap.classList.toggle("locked", !!trackedId);
+  input.value = trackedId || "";
+  try { localStorage.setItem("flightwall_tracked", trackedId || ""); } catch (e) {}
+}
+
+/* ============================================================
+   Altitude → color band (radar icons + visual reference)
+   ============================================================ */
+function altitudeColor(altFt) {
+  if (altFt == null) return "#5A6472";
+  if (altFt < 3000) return "#F2C879";
+  if (altFt < 15000) return "#E0A85F";
+  return "#5FD4D4";
+}
+
+/* ============================================================
+   Position history — short rolling trail per aircraft (by icao24)
+   ============================================================ */
+const TRAIL_LENGTH = 5;
+const STALE_MS = 5 * 60 * 1000;
+const trailHistory = new Map();
+
+function updateTrailHistory(flights) {
+  const now = Date.now();
+  const seen = new Set();
+  flights.forEach(f => {
+    seen.add(f.icao24);
+    const entry = trailHistory.get(f.icao24) || { points: [], lastSeen: now };
+    entry.points.push({ distKm: f.distKm, brg: f.brg });
+    if (entry.points.length > TRAIL_LENGTH) entry.points.shift();
+    entry.lastSeen = now;
+    trailHistory.set(f.icao24, entry);
+  });
+  for (const [icao24, entry] of trailHistory) {
+    if (!seen.has(icao24) && (now - entry.lastSeen) > STALE_MS) trailHistory.delete(icao24);
+  }
+}
+
+/* ============================================================
+   Render: board (split-flap list)
    ============================================================ */
 function renderBoard(flights) {
   const board = document.getElementById("board");
   if (!flights.length) {
     board.innerHTML = `<div class="empty-state">
       <div class="big">NO TRAFFIC IN RANGE</div>
-      <div>Watching ${CONFIG.RADIUS_KM} km around your location&hellip;</div>
+      <div>Watching ${fmtDist(CONFIG.RADIUS_KM)} around your location&hellip;</div>
     </div>`;
     return;
   }
-  const rows = flights.slice(0, CONFIG.MAX_ROWS).map(f => `
-    <div class="row">
-      <div class="callsign">${f.callsign}</div>
-      <div class="reg">${f.icao24.toUpperCase()}</div>
-      <div class="route">${Math.round(f.distKm)} km out</div>
-      <div class="alt">${f.altFt != null ? f.altFt.toLocaleString() : "—"}</div>
-      <div class="spd">${f.spdKt != null ? f.spdKt : "—"}</div>
+  const nearestId = flights[0] ? flights[0].icao24 : null;
+  const rows = flights.slice(0, CONFIG.MAX_ROWS).map(f => {
+    const isLocked = trackedId && (f.callsign.toUpperCase() === trackedId || f.icao24 === trackedId);
+    const isNearest = f.icao24 === nearestId;
+    const vr = vrateInfo(f.vrate);
+    return `
+    <div class="row ${isLocked ? "locked" : ""} ${isNearest ? "nearest" : ""}" data-id="${f.icao24}" data-callsign="${f.callsign}">
+      <div class="callsign-cell">
+        <div class="callsign">${f.callsign}</div>
+        <div class="operator">${f.operator || "&mdash;"}</div>
+      </div>
+      <div class="reg">${f.reg || f.icao24}</div>
+      <div class="actype">${f.typeDesc || f.typeCode || "Unknown type"}${f.typeCode ? `<span class="typecode">${f.typeCode}</span>` : ""}</div>
+      <div class="alt">${fmtAlt(f.altFt)}</div>
+      <div class="spd">${fmtSpd(f.spdKt)}</div>
       <div class="hdg"><span class="hdg-arrow">${headingArrow(f.track)}</span>${f.track != null ? f.track + "°" : "—"}</div>
-    </div>
-  `).join("");
+      <div class="vrate-icon ${vr.cls}" title="${vr.label}">${vr.icon}</div>
+    </div>`;
+  }).join("");
   board.innerHTML = rows;
+
+  board.querySelectorAll(".row").forEach(row => {
+    row.addEventListener("click", () => {
+      const cs = row.getAttribute("data-callsign");
+      const id = row.getAttribute("data-id");
+      setTrackedId(cs && cs !== "—" ? cs : id);
+    });
+  });
 }
 
 /* ============================================================
-   Render: radar SVG
+   Render: nearest-flight detail blob
+   ============================================================ */
+function renderNearestBlob(flights) {
+  const blob = document.getElementById("nearest-blob");
+  if (!flights.length) { blob.classList.remove("show"); return; }
+  const f = flights[0];
+  blob.classList.add("show");
+  document.getElementById("nbCallsign").textContent = f.callsign;
+  document.getElementById("nbOperator").textContent = f.operator || "Operator unknown";
+  document.getElementById("nbType").textContent = f.typeDesc || f.typeCode || "Aircraft type unknown";
+  document.getElementById("nbDist").textContent = fmtDist(f.distKm);
+  document.getElementById("nbAlt").textContent = fmtAlt(f.altFt);
+  document.getElementById("nbSpd").textContent = fmtSpd(f.spdKt);
+
+  const vr = vrateInfo(f.vrate);
+  const vrateEl = document.getElementById("nbVrate");
+  vrateEl.className = "nb-vrate " + vr.cls;
+  vrateEl.textContent = `${vr.icon} ${vr.label}`;
+
+  const trackBtn = document.getElementById("nbTrackBtn");
+  trackBtn.onclick = () => setTrackedId(f.callsign !== "—" ? f.callsign : f.icao24);
+}
+
+/* ============================================================
+   Render: radar SVG — plane icons rotated to heading, fading
+   trails, altitude-banded color, locked-aircraft highlight
    ============================================================ */
 function renderRadar(flights) {
+  updateTrailHistory(flights);
+
   const svg = document.getElementById("radar-svg");
   const cx = 200, cy = 200, maxR = 175;
   let html = "";
 
-  // rings
   [1, 2, 3, 4].forEach(i => {
-    html += `<circle class="ring" cx="${cx}" cy="${cy}" r="${(maxR/4)*i}" />`;
+    const r = (maxR / 4) * i;
+    html += `<circle class="ring" cx="${cx}" cy="${cy}" r="${r}" />`;
   });
-  // crosshair
   html += `<line class="crosshair" x1="${cx}" y1="${cy-maxR}" x2="${cx}" y2="${cy+maxR}" />`;
   html += `<line class="crosshair" x1="${cx-maxR}" y1="${cy}" x2="${cx+maxR}" y2="${cy}" />`;
 
-  // sweep
-  html += `<g class="sweep-group" style="transform-origin:${cx}px ${cy}px;">
+  html += `<g class="sweep-group" id="sweepGroup">
     <path d="M ${cx} ${cy} L ${cx} ${cy-maxR} A ${maxR} ${maxR} 0 0 1 ${cx+maxR*Math.sin(0.5)} ${cy-maxR*Math.cos(0.5)} Z"
       fill="url(#sweepGrad)" opacity="0.5" />
   </g>`;
 
-  // gradient def
-  html += `<defs><linearGradient id="sweepGrad" x1="0" y1="0" x2="1" y2="0">
-    <stop offset="0%" stop-color="#5FD4D4" stop-opacity="0.35"/>
-    <stop offset="100%" stop-color="#5FD4D4" stop-opacity="0"/>
-  </linearGradient></defs>`;
+  html += `<defs>
+    <linearGradient id="sweepGrad" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#5FD4D4" stop-opacity="0.35"/>
+      <stop offset="100%" stop-color="#5FD4D4" stop-opacity="0"/>
+    </linearGradient>
+    <path id="planeShape" d="M 0 -7 L 4 4.5 L 1.3 3.3 L 1.3 7 L -1.3 7 L -1.3 3.3 L -4 4.5 Z" />
+  </defs>`;
 
-  // center mark (your location)
+  function project(distKm, brg) {
+    const r = (distKm / CONFIG.RADIUS_KM) * maxR;
+    const rad = (brg - 90) * Math.PI / 180;
+    return { x: cx + r * Math.cos(rad), y: cy + r * Math.sin(rad) };
+  }
+
   html += `<circle class="center-mark" cx="${cx}" cy="${cy}" r="4" />`;
 
-  // planes
   flights.forEach(f => {
-    const r = (f.distKm / CONFIG.RADIUS_KM) * maxR;
-    const rad = (f.brg - 90) * Math.PI / 180; // 0deg = north = up
-    const px = cx + r * Math.cos(rad);
-    const py = cy + r * Math.sin(rad);
-    html += `<circle class="plane-dot" cx="${px}" cy="${py}" r="3.5" />`;
-    html += `<text class="plane-label" x="${px + 7}" y="${py + 3}">${f.callsign}</text>`;
+    const hist = trailHistory.get(f.icao24);
+    if (!hist || hist.points.length < 2) return;
+    const pts = hist.points.map(p => project(p.distKm, p.brg));
+    const color = altitudeColor(f.altFt);
+    pts.forEach((pt, i) => {
+      if (i === 0) return;
+      const prev = pts[i - 1];
+      const opacity = 0.06 + (i / pts.length) * 0.28;
+      html += `<line x1="${prev.x}" y1="${prev.y}" x2="${pt.x}" y2="${pt.y}" stroke="${color}" stroke-width="1.4" opacity="${opacity.toFixed(2)}" stroke-linecap="round" />`;
+    });
+  });
+
+  flights.forEach(f => {
+    const { x, y } = project(f.distKm, f.brg);
+    const rot = f.track != null ? f.track : 0;
+    const color = altitudeColor(f.altFt);
+    const isLocked = trackedId && (f.callsign.toUpperCase() === trackedId || f.icao24 === trackedId);
+    const strokeColor = isLocked ? "#5FD4D4" : "#0B0F14";
+    const strokeWidth = isLocked ? 1.4 : 0.6;
+
+    if (isLocked) {
+      html += `<circle cx="${x}" cy="${y}" r="11" fill="none" stroke="#5FD4D4" stroke-width="1" opacity="0.6"><animate attributeName="r" values="9;14;9" dur="1.8s" repeatCount="indefinite" /><animate attributeName="opacity" values="0.7;0.1;0.7" dur="1.8s" repeatCount="indefinite" /></circle>`;
+    }
+
+    html += `<use href="#planeShape" x="${x}" y="${y}" fill="${color}"
+      transform="rotate(${rot} ${x} ${y})" stroke="${strokeColor}" stroke-width="${strokeWidth}" />`;
+    html += `<text class="plane-label ${isLocked ? "locked" : ""}" x="${x + 8}" y="${y + 3}">${f.callsign}</text>`;
   });
 
   svg.innerHTML = html;
-  document.getElementById("radiusLabel").textContent = `RADIUS — ${CONFIG.RADIUS_KM} KM`;
+  document.getElementById("radiusLabel").textContent = `RADIUS — ${fmtDist(CONFIG.RADIUS_KM)}`;
+
+  const sweepEl = document.getElementById("sweepGroup");
+  sweepEl.style.animation = "none";
+  void sweepEl.offsetWidth; // force reflow so the animation restarts cleanly
+  sweepEl.style.animation = `sweep ${CONFIG.SWEEP_SECONDS}s linear infinite`;
 }
 
 /* ============================================================
    Location picker — presets + custom lat/lon, persisted locally
    ============================================================ */
 function saveLocation(lat, lon, name) {
-  try {
-    localStorage.setItem("flightwall_location", JSON.stringify({ lat, lon, name }));
-  } catch (e) { /* localStorage unavailable, location just won't persist */ }
+  try { localStorage.setItem("flightwall_location", JSON.stringify({ lat, lon, name })); } catch (e) {}
 }
 
 function setLocation(lat, lon, name) {
@@ -685,23 +965,23 @@ function initLocationPicker() {
   renderLocationPanel();
 }
 
-
+/* ============================================================
+   Radius picker — tap to switch range, re-fetches immediately
+   ============================================================ */
 let activeTimer = null;
 let forceRefresh = false;
 
 function renderRadiusPicker() {
   const wrap = document.getElementById("radiusPicker");
-  // remove old buttons (keep the label)
-  wrap.querySelectorAll(".rbtn").forEach(b => b.remove());
+  wrap.querySelectorAll(".pill-btn").forEach(b => b.remove());
   CONFIG.RADIUS_OPTIONS.forEach(km => {
     const btn = document.createElement("button");
-    btn.className = "rbtn" + (km === CONFIG.RADIUS_KM ? " active" : "");
-    btn.textContent = km + " KM";
+    btn.className = "pill-btn" + (km === CONFIG.RADIUS_KM ? " active" : "");
+    btn.textContent = km + (CONFIG.UNITS === "imperial" ? " MI" : " KM");
     btn.addEventListener("click", () => {
       if (km === CONFIG.RADIUS_KM) return;
       CONFIG.RADIUS_KM = km;
       renderRadiusPicker();
-      // jump the queue: cancel pending timer and refetch now at the new radius
       if (activeTimer) clearTimeout(activeTimer);
       forceRefresh = true;
       tick();
@@ -711,9 +991,87 @@ function renderRadiusPicker() {
 }
 
 /* ============================================================
+   Unit switcher (metric / imperial)
+   ============================================================ */
+function renderUnitPicker() {
+  const wrap = document.getElementById("unitGroup");
+  wrap.querySelectorAll(".pill-btn").forEach(b => b.remove());
+  [{ key: "metric", label: "KM" }, { key: "imperial", label: "MI" }].forEach(opt => {
+    const btn = document.createElement("button");
+    btn.className = "pill-btn" + (CONFIG.UNITS === opt.key ? " active" : "");
+    btn.textContent = opt.label;
+    btn.addEventListener("click", () => {
+      if (CONFIG.UNITS === opt.key) return;
+      CONFIG.UNITS = opt.key;
+      try { localStorage.setItem("flightwall_units", opt.key); } catch (e) {}
+      renderUnitPicker();
+      renderRadiusPicker();
+      // re-render immediately with cached data so units update without waiting for next poll
+      if (lastGoodData) {
+        const flights = parseStates(lastGoodData);
+        renderBoard(flights);
+        renderRadar(flights);
+        renderNearestBlob(flights);
+      }
+    });
+    wrap.appendChild(btn);
+  });
+}
+
+/* ============================================================
+   Altitude (ground traffic) filter toggle
+   ============================================================ */
+function initAltFilter() {
+  const btn = document.getElementById("altFilterBtn");
+  btn.classList.toggle("active", CONFIG.HIDE_GROUND);
+  btn.addEventListener("click", () => {
+    CONFIG.HIDE_GROUND = !CONFIG.HIDE_GROUND;
+    try { localStorage.setItem("flightwall_hide_ground", String(CONFIG.HIDE_GROUND)); } catch (e) {}
+    btn.classList.toggle("active", CONFIG.HIDE_GROUND);
+    if (lastGoodData) {
+      const flights = parseStates(lastGoodData);
+      renderBoard(flights);
+      renderRadar(flights);
+      renderNearestBlob(flights);
+    }
+  });
+}
+
+/* ============================================================
+   Track-lock input wiring
+   ============================================================ */
+function initTrackPicker() {
+  const input = document.getElementById("trackInput");
+  const clearBtn = document.getElementById("trackClear");
+
+  try {
+    const saved = localStorage.getItem("flightwall_tracked");
+    if (saved) setTrackedId(saved);
+  } catch (e) {}
+
+  input.addEventListener("keydown", (e) => {
+    if (e.key === "Enter") {
+      setTrackedId(input.value);
+      input.blur();
+      if (lastGoodData) {
+        const flights = parseStates(lastGoodData);
+        renderBoard(flights);
+        renderRadar(flights);
+      }
+    }
+  });
+  clearBtn.addEventListener("click", () => {
+    setTrackedId(null);
+    if (lastGoodData) {
+      const flights = parseStates(lastGoodData);
+      renderBoard(flights);
+      renderRadar(flights);
+    }
+  });
+}
+
+/* ============================================================
    file:// protocol guard
-   Browsers block fetch() from local files for security reasons,
-   so opening this file by double-clicking it won't pull live data.
    ============================================================ */
 function checkProtocol() {
   if (window.location.protocol === "file:") {
@@ -730,40 +1088,42 @@ function checkProtocol() {
   return false;
 }
 
-
-
 function fmtTime(d) {
   return d.toTimeString().slice(0,8);
 }
 
+/* ============================================================
+   Main loop — refresh interval is locked to the radar sweep
+   duration, so the radar always completes one clean rotation
+   per data refresh (visually synced, not just timed similarly).
+   ============================================================ */
 async function tick() {
-  if (checkProtocol()) {
-    // Don't keep polling against a blocked protocol — just stop here.
-    return;
-  }
+  if (checkProtocol()) return;
 
   const raw = await fetchFlights();
   const flights = parseStates(raw);
 
   renderBoard(flights);
   renderRadar(flights);
+  renderNearestBlob(flights);
 
   document.getElementById("lastUpdate").textContent = `LAST UPDATE — ${fmtTime(new Date())}`;
   document.getElementById("countCount").textContent = `${flights.length} AIRCRAFT TRACKED`;
 
-  // Backoff: if OpenSky is failing repeatedly, slow down requests
-  // so we don't hammer it (and so any rate limit clears faster).
-  let delay = CONFIG.REFRESH_MS;
-  if (consecutiveFailures >= 1) delay = CONFIG.REFRESH_MS * 2;
-  if (consecutiveFailures >= 3) delay = CONFIG.REFRESH_MS * 4;
-  if (consecutiveFailures >= 6) delay = 120000; // cap at 2 min
-  if (forceRefresh) { delay = CONFIG.REFRESH_MS; forceRefresh = false; }
+  let delay = CONFIG.SWEEP_SECONDS * 1000;
+  if (consecutiveFailures >= 1) delay = CONFIG.SWEEP_SECONDS * 1000 * 2;
+  if (consecutiveFailures >= 3) delay = CONFIG.SWEEP_SECONDS * 1000 * 4;
+  if (consecutiveFailures >= 6) delay = 120000;
+  if (forceRefresh) { delay = CONFIG.SWEEP_SECONDS * 1000; forceRefresh = false; }
 
   activeTimer = setTimeout(tick, delay);
 }
 
 renderRadiusPicker();
+renderUnitPicker();
 initLocationPicker();
+initAltFilter();
+initTrackPicker();
 tick();
 
 // Prevent iOS Safari pull-to-refresh / bounce so it feels app-like
