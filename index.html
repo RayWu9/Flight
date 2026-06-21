@@ -397,8 +397,8 @@ const CONFIG = {
   MAX_ROWS: 14,             // max rows shown on the board
   // Optional: OpenSky free registered account gives a higher rate limit.
   // Leave blank to use anonymous access (still works, lower limit).
-  OPENSKY_CLIENT_ID: "",
-  OPENSKY_CLIENT_SECRET: ""
+  OPENSKY_CLIENT_ID: "rw09-api-client",
+  OPENSKY_CLIENT_SECRET: "AjC0GHzRXKrRtvo4fe7MVzsQNWa0WCTq"
 };
 
 // Quick-pick presets shown in the location dropdown. Add/remove freely.
@@ -473,11 +473,16 @@ async function getOpenSkyToken() {
         client_secret: CONFIG.OPENSKY_CLIENT_SECRET
       })
     });
-    if (!res.ok) return null;
+    if (!res.ok) {
+      console.warn(`FlightWall: OpenSky auth failed with HTTP ${res.status} — falling back to proxies`);
+      return null;
+    }
     const data = await res.json();
     tokenCache = { token: data.access_token, expires: Date.now() + (data.expires_in - 30) * 1000 };
+    console.log("FlightWall: OpenSky auth succeeded, token cached");
     return tokenCache.token;
   } catch (e) {
+    console.warn("FlightWall: OpenSky auth request threw an error — falling back to proxies", e);
     return null;
   }
 }
@@ -515,7 +520,9 @@ async function fetchFlights() {
   for (const attempt of attempts) {
     lastStage = attempt.label;
     try {
+      console.log(`FlightWall: trying ${attempt.label} →`, attempt.url);
       const res = await fetch(attempt.url, { headers });
+      console.log(`FlightWall: ${attempt.label} responded with status ${res.status}`);
 
       if (res.status === 429) {
         lastError = "rate limited";
@@ -529,6 +536,7 @@ async function fetchFlights() {
       const data = await res.json();
       if (!data || !Array.isArray(data.states)) {
         lastError = "bad payload";
+        console.log(`FlightWall: ${attempt.label} returned unexpected payload:`, data);
         continue;
       }
 
@@ -538,6 +546,7 @@ async function fetchFlights() {
       return data;
     } catch (e) {
       lastError = e.message || "network error";
+      console.log(`FlightWall: ${attempt.label} threw an error:`, e);
       continue;
     }
   }
@@ -812,4 +821,4 @@ tick();
 document.body.addEventListener('touchmove', function(e) { e.preventDefault(); }, { passive: false });
 </script>
 </body>
-</html> 
+</html>
