@@ -393,12 +393,11 @@ const CONFIG = {
   LOCATION_NAME: "Sydney Airport",
   RADIUS_KM: 40,            // <-- default/starting radius in km
   RADIUS_OPTIONS: [20, 40, 80, 150], // <-- tappable radius choices shown in header
-  REFRESH_MS: 20000,        // poll every 20s (anonymous OpenSky + free proxies are rate-limit sensitive)
-  MAX_ROWS: 14,             // max rows shown on the board
-  // Optional: OpenSky free registered account gives a higher rate limit.
-  // Leave blank to use anonymous access (still works, lower limit).
-  OPENSKY_CLIENT_ID: "rw09-api-client",
-  OPENSKY_CLIENT_SECRET: "AjC0GHzRXKrRtvo4fe7MVzsQNWa0WCTq"
+  REFRESH_MS: 15000,        // poll every 15s — safe now that requests go through your authenticated Worker
+  MAX_ROWS: 14              // max rows shown on the board
+  // Note: OpenSky credentials now live in the Cloudflare Worker (worker.js),
+  // not here — the Worker handles auth server-side, so the browser never
+  // needs them directly.
 };
 
 // Quick-pick presets shown in the location dropdown. Add/remove freely.
@@ -454,110 +453,58 @@ function bearingFromCenter(lat1, lon1, lat2, lon2) {
 }
 
 /* ============================================================
-   OpenSky fetch with auth fallback, retry/backoff, caching
+   Flight data fetch — via your own Cloudflare Worker
+   The Worker runs server-side (not in the browser), so it handles
+   OpenSky's OAuth2 login and the actual data request with no CORS
+   restriction at all — server-to-server calls aren't subject to CORS.
+   This replaces the old direct-OpenSky / proxy-chain approach, which
+   was unreliable (OpenSky's auth endpoint has no CORS headers, and
+   free public proxies are flaky/rate-limited).
    ============================================================ */
-let tokenCache = { token: null, expires: 0 };
+const WORKER_URL = "https://flightwall-proxy.raymondwu999.workers.dev";
+
 let consecutiveFailures = 0;
 let lastGoodData = null;
 
-async function getOpenSkyToken() {
-  if (!CONFIG.OPENSKY_CLIENT_ID || !CONFIG.OPENSKY_CLIENT_SECRET) return null;
-  if (tokenCache.token && Date.now() < tokenCache.expires) return tokenCache.token;
-  try {
-    const res = await fetch("https://auth.opensky-network.org/auth/realms/opensky-network/protocol/openid-connect/token", {
-      method: "POST",
-      headers: { "Content-Type": "application/x-www-form-urlencoded" },
-      body: new URLSearchParams({
-        grant_type: "client_credentials",
-        client_id: CONFIG.OPENSKY_CLIENT_ID,
-        client_secret: CONFIG.OPENSKY_CLIENT_SECRET
-      })
-    });
-    if (!res.ok) {
-      console.warn(`FlightWall: OpenSky auth failed with HTTP ${res.status} — falling back to proxies`);
-      return null;
-    }
-    const data = await res.json();
-    tokenCache = { token: data.access_token, expires: Date.now() + (data.expires_in - 30) * 1000 };
-    console.log("FlightWall: OpenSky auth succeeded, token cached");
-    return tokenCache.token;
-  } catch (e) {
-    console.warn("FlightWall: OpenSky auth request threw an error — falling back to proxies", e);
-    return null;
-  }
-}
-
-// OpenSky blocks anonymous cross-origin browser requests (no CORS header
-// for any origin but their own site). Authenticated requests DO get CORS
-// headers, so if you've set OPENSKY_CLIENT_ID/SECRET above, we call it
-// directly. Otherwise we route through a free public CORS proxy — tried
-// in order, since any one of these free services can be flaky/overloaded.
-const CORS_PROXIES = [
-  url => `https://api.allorigins.win/raw?url=${encodeURIComponent(url)}`,
-  url => `https://corsproxy.io/?url=${encodeURIComponent(url)}`,
-  url => `https://thingproxy.freeboard.io/fetch/${url}`
-];
-
 async function fetchFlights() {
   const box = bbox(CONFIG.CENTER_LAT, CONFIG.CENTER_LON, CONFIG.RADIUS_KM);
-  const targetUrl = `https://opensky-network.org/api/states/all?lamin=${box.lamin}&lomin=${box.lomin}&lamax=${box.lamax}&lomax=${box.lomax}`;
+  const url = `${WORKER_URL}/?lamin=${box.lamin}&lomin=${box.lomin}&lamax=${box.lamax}&lomax=${box.lomax}`;
 
-  const headers = {};
-  const token = await getOpenSkyToken();
-  if (token) headers["Authorization"] = `Bearer ${token}`;
+  try {
+    console.log("FlightWall: requesting", url);
+    const res = await fetch(url);
+    console.log("FlightWall: worker responded with status", res.status);
 
-  // Build the list of URLs to try in order. If authenticated, call OpenSky
-  // directly first (gets proper CORS headers). Anonymous requests skip the
-  // direct call entirely — it will only ever fail with a CORS error and
-  // wastes a request against OpenSky's tight anonymous rate limit.
-  const attempts = token
-    ? [{ url: targetUrl, label: "direct" }, ...CORS_PROXIES.map((p, i) => ({ url: p(targetUrl), label: `proxy ${i + 1}` }))]
-    : CORS_PROXIES.map((p, i) => ({ url: p(targetUrl), label: `proxy ${i + 1}` }));
-
-  let lastError = null;
-  let lastStage = null;
-
-  for (const attempt of attempts) {
-    lastStage = attempt.label;
-    try {
-      console.log(`FlightWall: trying ${attempt.label} →`, attempt.url);
-      const res = await fetch(attempt.url, { headers });
-      console.log(`FlightWall: ${attempt.label} responded with status ${res.status}`);
-
-      if (res.status === 429) {
-        lastError = "rate limited";
-        continue; // this proxy/source is throttled — try the next one
-      }
-      if (!res.ok) {
-        lastError = `HTTP ${res.status}`;
-        continue;
-      }
-
-      const data = await res.json();
-      if (!data || !Array.isArray(data.states)) {
-        lastError = "bad payload";
-        console.log(`FlightWall: ${attempt.label} returned unexpected payload:`, data);
-        continue;
-      }
-
-      consecutiveFailures = 0;
-      lastGoodData = data;
-      setStatus("ok", "LIVE");
-      return data;
-    } catch (e) {
-      lastError = e.message || "network error";
-      console.log(`FlightWall: ${attempt.label} threw an error:`, e);
-      continue;
+    if (res.status === 429) {
+      consecutiveFailures++;
+      setStatus("warn", "RATE LIMITED");
+      return lastGoodData;
     }
+    if (!res.ok) {
+      consecutiveFailures++;
+      setStatus("warn", `OFFLINE (HTTP ${res.status})`);
+      return lastGoodData;
+    }
+
+    const data = await res.json();
+    if (!data || !Array.isArray(data.states)) {
+      consecutiveFailures++;
+      setStatus("warn", "OFFLINE (bad payload)");
+      console.warn("FlightWall: unexpected payload from worker:", data);
+      return lastGoodData;
+    }
+
+    consecutiveFailures = 0;
+    lastGoodData = data;
+    setStatus("ok", "LIVE");
+    return data;
+
+  } catch (e) {
+    consecutiveFailures++;
+    setStatus("warn", "OFFLINE (network error)");
+    console.warn("FlightWall: fetch to worker threw an error:", e);
+    return lastGoodData;
   }
-
-  // every attempt failed
-
-  consecutiveFailures++;
-  const statusMsg = lastGoodData ? "RETRYING…" : `OFFLINE (${lastError || "unknown"})`;
-  setStatus("warn", statusMsg);
-  console.warn(`FlightWall: all data sources failed. Last stage: ${lastStage}, reason: ${lastError}`);
-  return lastGoodData;
 }
 
 function setStatus(kind, text) {
